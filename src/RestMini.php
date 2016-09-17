@@ -1600,8 +1600,11 @@ class RestMini {
       else {
         $inspect = 0;
       }
-      if (!empty($this->options['logger']) && is_object($logger) && method_exists($logger, 'log')) {
+      if (!empty($this->options['logger'])) {
         $logger = $this->options['logger'];
+        if (!is_object($logger) || !method_exists($logger, 'log')) {
+          $logger = NULL;
+        }
       }
     }
     if ($inspect) {
