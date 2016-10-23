@@ -12,12 +12,16 @@ namespace SimpleComplex\RestMini;
 class RestMini {
 
   /**
+   * @var string
+   */
+  const CONFIG_DOMAIN = 'lib_simplecomplex_restmini';
+
+  /**
    * Whether to SSL verify peer, when option ssl_verify not set.
    *
    * @var boolean
    */
   const SSL_VERIFY_DEFAULT = TRUE;
-
 
   /**
    * Default connect timeout in seconds, overridable by Drupal conf variable
@@ -34,6 +38,13 @@ class RestMini {
    * @var integer
    */
   const REQUEST_TIMEOUT_DEFAULT = 20;
+
+  /**
+   * Default when no 'log_type' option.
+   *
+   * @var string
+   */
+  const LOG_TYPE_DEFAULT = 'restmini';
 
   /**
    * @var integer
@@ -481,10 +492,10 @@ class RestMini {
 
     // Secure timeout options.
     if (!$options || !array_key_exists('connect_timeout', $options)) {
-      $options['connect_timeout'] = static::configGet('restmini', 'contimeout', static::CONNECT_TIMEOUT_DEFAULT);
+      $options['connect_timeout'] = static::configGet('', 'contimeout', static::CONNECT_TIMEOUT_DEFAULT);
     }
     if (!$options || !array_key_exists('request_timeout', $options)) {
-      $options['request_timeout'] = static::configGet('restmini', 'reqtimeout', static::REQUEST_TIMEOUT_DEFAULT);
+      $options['request_timeout'] = static::configGet('', 'reqtimeout', static::REQUEST_TIMEOUT_DEFAULT);
     }
 
     // Resolve SSL issues.
@@ -492,7 +503,7 @@ class RestMini {
       // Set 'ssl_verify' option, if not set.
       if (!array_key_exists('ssl_verify', $options)) {
         // Turned off by variable setting? Otherwise use current class default.
-        $options['ssl_verify'] = static::configGet('restmini', 'sslverifydefnot', FALSE) ? FALSE : static::SSL_VERIFY_DEFAULT;
+        $options['ssl_verify'] = static::configGet('', 'sslverifydefnot', FALSE) ? FALSE : static::SSL_VERIFY_DEFAULT;
       }
       // Secure CA certs file.
       if ($options['ssl_verify']) {
@@ -840,7 +851,7 @@ class RestMini {
         // Unless path+file (custom ssl_cacert_file option using path+file
         // instead of just file), prepend path.
         if (!strpos(' ' . $caFile, '/')) {
-          $caFile = static::configGet('restmini', 'cacertsdir', '/etc/ssl/certs') . '/' . $caFile;
+          $caFile = static::certificateDir() . '/' . $caFile;
         }
         $curlOpts[CURLOPT_CAINFO] = $caFile;
       }
@@ -1497,6 +1508,155 @@ class RestMini {
   }
 
   /**
+   * Get error code by name, or code list, or code range.
+   *
+   * @param string $name
+   *   Non-empty: return code by name (defaults to 'unknown')
+   *   Default: empty (~ return codes list).
+   * @param boolean $range
+   *   TRUE: return code range array(N-first, N-last).
+   *   Default: FALSE (~ ignore argument).
+   *
+   * @return integer|array
+   */
+  public static function errorCode($name = '', $range = FALSE) {
+    static $codes;
+
+    if ($name) {
+      return static::$errorCodeOffset
+      + (array_key_exists($name, static::$errorCodes) ? static::$errorCodes[$name] : static::$errorCodes['unknown']);
+    }
+
+    if ($range) {
+      return array(
+        static::$errorCodeOffset,
+        // Range of sub modules should only be 100, to allow for all sub modules
+        // within an overall range of 1000.
+        static::$errorCodeOffset + 99
+      );
+    }
+
+    if (!$codes) {
+      $codes = static::$errorCodes; // Copy.
+      if (($offset = static::$errorCodeOffset)) {
+        foreach ($codes as &$code) {
+          $code += $offset;
+        }
+        unset($code); // Iteration ref.
+      }
+    }
+
+    return $codes;
+  }
+
+  /**
+   * Get config var.
+   *
+   * This implementation attempts to get from server environment variables.
+   *
+   *  Server environment variable names used:
+   *  - lib_simplecomplex_restmini_contimeout
+   *  - lib_simplecomplex_restmini_reqtimeout
+   *  - lib_simplecomplex_restmini_sslverifydefnot
+   *  - lib_simplecomplex_restmini_cacertssrc
+   *  - lib_simplecomplex_restmini_cacertsdir
+   *
+   * @param string $domain
+   *   Default: static::CONFIG_DOMAIN.
+   * @param string $name
+   * @param mixed $default
+   *   Default: NULL.
+   *
+   * @return mixed
+   */
+  protected static function configGet($domain, $name, $default = NULL) {
+    return ($val = getenv($domain ? $domain : static::CONFIG_DOMAIN . '_' . $name)) !== FALSE ? $val : $default;
+  }
+
+  /**
+   * @param string $str
+   *
+   * @return string
+   */
+  protected static function plaintext($str) {
+    return htmlspecialchars(strip_tags($str), ENT_QUOTES, 'UTF-8');
+  }
+
+  /**
+   * Get default certificates dir.
+   *
+   * @return string
+   */
+  protected static function certificateDir() {
+    return static::configGet('', 'cacertsdir', '/etc/ssl/certs');
+  }
+
+  /**
+   * Uses optional PSR-3 logger and/or Inspect if applicable.
+   *
+   * @param integer $severity
+   * @param string $message
+   * @param \Exception|NULL $exception
+   *   Ignored if no Inspect library.
+   * @param mixed $variable
+   *   Ignored if no Inspect library.
+   *   Ignored if truthy arg $exception.
+   */
+  protected function log($severity, $message, $exception = NULL, $variable = NULL) {
+    static $inspect = -1, $logger;
+    // Check for Inspect, and whether this object was initialized with a PSR-3
+    // logger (as option).
+    if ($inspect == -1) {
+      // This implementation expects the Inspect library source to be placed
+      // right beside this source (Composer would place it there).
+      if (file_exists(dirname(__FILE__) . '/../../inspect/src/Inspect.php')) {
+        include_once dirname(__FILE__) . '/../../inspect/src/Inspect.php';
+        $inspect = 1;
+      }
+      else {
+        $inspect = 0;
+      }
+      // Use PSR-3 logger; directly or as logger for Inspect.
+      if (!empty($this->options['logger'])) {
+        $logger = $this->options['logger'];
+        if (!is_object($logger) || !method_exists($logger, 'log')) {
+          $logger = NULL;
+        }
+      }
+    }
+    if ($inspect) {
+      $opts = array(
+        'type' => !empty($this->options['log_type']) ? $this->options['log_type'] : static::LOG_TYPE_DEFAULT,
+        'message' => $message,
+        'severity' => $severity,
+        'wrappers' => 1,
+      );
+      if ($logger) {
+        $opts['logger'] = $logger;
+      }
+      // Trace exception, or inspect variable.
+      if ($exception) {
+        \SimpleComplex\Inspect\Inspect::trace($exception, $opts);
+      }
+      else {
+        \SimpleComplex\Inspect\Inspect::log($variable, $opts);
+      }
+    }
+    else {
+      if ($exception) {
+        $message .= ': (' . $exception->getCode() . ') ' . $exception->getMessage()
+          . ' @' . $exception->getFile() . ':' . $exception->getLine();
+      }
+      if ($logger) {
+        $logger->log($severity, $message);
+      }
+      else {
+        error_log($message);
+      }
+    }
+  }
+
+  /**
    * CURLOPT_HEADERFUNCTION implementation.
    *
    * @param resource $resource
@@ -1540,147 +1700,6 @@ class RestMini {
     }
     // Satisfy return value contract with PHP cUrl.
     return strlen($headerLine);
-  }
-
-  /**
-   * Get error code by name, or code list, or code range.
-   *
-   * @param string $name
-   *   Non-empty: return code by name (defaults to 'unknown')
-   *   Default: empty (~ return codes list).
-   * @param boolean $range
-   *   TRUE: return code range array(N-first, N-last).
-   *   Default: FALSE (~ ignore argument).
-   *
-   * @return integer|array
-   */
-  public static function errorCode($name = '', $range = FALSE) {
-    static $codes;
-
-    if ($name) {
-      return static::$errorCodeOffset
-      + (array_key_exists($name, static::$errorCodes) ? static::$errorCodes[$name] : static::$errorCodes['unknown']);
-    }
-
-    if ($range) {
-      return array(
-        static::$errorCodeOffset,
-        // Range of sub modules should only be 100, to allow for all sub modules
-        // within an overall range of 1000.
-        static::$errorCodeOffset + 99
-      );
-    }
-
-    if (!$codes) {
-      $codes = static::$errorCodes; // Copy.
-      if (($offset = static::$errorCodeOffset)) {
-        foreach ($codes as &$code) {
-          $code += $offset;
-        }
-        unset($code); // Iteration ref.
-      }
-    }
-
-    return $codes;
-  }
-
-  /**
-   * Uses optional PSR-3 logger and/or Inspect if applicable.
-   *
-   * @param integer $severity
-   * @param string $message
-   * @param \Exception|NULL $exception
-   *   Ignored if no Inspect library.
-   * @param mixed $variable
-   *   Ignored if no Inspect library.
-   *   Ignored if truthy arg $exception.
-   */
-  protected function log($severity, $message, $exception = NULL, $variable = NULL) {
-    static $inspect = -1, $logger;
-    // Check for Inspect, and whether this object was initialized with a PSR-3
-    // logger (as option).
-    if ($inspect == -1) {
-      // This implementation expects the Inspect library source to be placed
-      // right beside this source (Composer would place it there).
-      if (file_exists(dirname(__FILE__) . '/../../inspect/src/Inspect.php')) {
-        include_once dirname(__FILE__) . '/../../inspect/src/Inspect.php';
-        $inspect = 1;
-      }
-      else {
-        $inspect = 0;
-      }
-      // Use PSR-3 logger; directly or as logger for Inspect.
-      if (!empty($this->options['logger'])) {
-        $logger = $this->options['logger'];
-        if (!is_object($logger) || !method_exists($logger, 'log')) {
-          $logger = NULL;
-        }
-      }
-    }
-    if ($inspect) {
-      $opts = array(
-        'type' => !empty($this->options['log_type']) ? $this->options['log_type'] : 'restmini',
-        'message' => $message,
-        'severity' => $severity,
-        'wrappers' => 1,
-      );
-      if ($logger) {
-        $opts['logger'] = $logger;
-      }
-      // Trace exception, or inspect variable.
-      if ($exception) {
-        \SimpleComplex\Inspect\Inspect::trace($exception, $opts);
-      }
-      else {
-        \SimpleComplex\Inspect\Inspect::log($variable, $opts);
-      }
-    }
-    else {
-      if ($exception) {
-        $message .= ': (' . $exception->getCode() . ') ' . $exception->getMessage()
-          . ' @' . $exception->getFile() . ':' . $exception->getLine();
-      }
-      if ($logger) {
-        $logger->log($severity, $message);
-      }
-      else {
-        error_log($message);
-      }
-    }
-  }
-
-  /**
-   * Get config var.
-   *
-   * This implementation attempts to get from server environment variables.
-   * And it only supports the domain 'restmini'.
-   *
-   *  Server environment variable names used:
-   *  - lib_simplecomplex_restmini_contimeout
-   *  - lib_simplecomplex_restmini_reqtimeout
-   *  - lib_simplecomplex_restmini_sslverifydefnot
-   *  - lib_simplecomplex_restmini_cacertssrc
-   *  - lib_simplecomplex_restmini_cacertsdir
-   *
-   * @param string $domain
-   * @param string $name
-   * @param mixed $default
-   *   Default: NULL.
-   *
-   * @return mixed
-   */
-  protected static function configGet($domain, $name, $default = NULL) {
-    // Environment vars.
-    return ($val = getenv('lib_simplecomplex_restmini_' . $name)) !== FALSE ? $val : $default;
-  }
-
-  /**
-   * @param string $str
-   *
-   * @return string
-   */
-  protected static function plaintext($str) {
-    return htmlspecialchars(strip_tags($str), ENT_QUOTES, 'UTF-8');
   }
 
 }
