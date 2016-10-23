@@ -47,6 +47,25 @@ class RestMini {
   const LOG_TYPE_DEFAULT = 'restmini';
 
   /**
+   * Response header separator.
+   *
+   * @var string
+   */
+  const RESPONSE_HEADER_SEP = ' | ';
+
+  /**
+   * Record same-named headers cumulative.
+   *
+   *  Values:
+   *  - falsy: don't, record only last
+   *  - 'rtl': right-to-left, last is first
+   *  - any other value: left-to-right, last is last
+   *
+   * @var string
+   */
+  const RESPONSE_HEADER_CUMULATE = 'rtl';
+
+  /**
    * @var integer
    */
   protected static $errorCodeOffset = 1500;
@@ -101,6 +120,8 @@ class RestMini {
    * @var array
    */
   protected static $optionsSupported = array(
+    'accept',
+    'accept_charset',
     'content_type',
     'connect_timeout',
     'request_timeout',
@@ -112,6 +133,7 @@ class RestMini {
     'auth',
     'user',
     'pass',
+    // Array; key => value, not 'key: value'.
     'headers',
     'get_headers',
     'log_severity_error',
@@ -165,11 +187,20 @@ class RestMini {
   protected $url = '';
 
   /**
-   * Accept request header value, unless overridden by options[headers][Accept].
+   * Accept request header value, unless overridden by options[accept]
+   * or (deprecated) options[headers][Accept].
    *
    * @var string
    */
   protected $accept = 'application/json, application/hal+json';
+
+  /**
+   * Accept request header value, unless overridden by options[accept_charset]
+   * or (deprecated) options[headers][Accept-Charset].
+   *
+   * @var string
+   */
+  protected $acceptCharset = 'UTF-8';
 
   /**
    * @var array
@@ -202,6 +233,13 @@ class RestMini {
    * @var array
    */
   protected $responseHeaders = array();
+
+  /**
+   * Response 'stops'; number HTTP status lines recorded in response headers.
+   *
+   * @var integer
+   */
+  protected $stops = 0;
 
   /**
    * @var integer
@@ -403,6 +441,8 @@ class RestMini {
    *
    * @param array $set
    *   Supported:
+   *   - (str) accept
+   *   - (str) accept_charset
    *   - (str) content_type (of request body; supported:
    *     ''|'application/x-www-form-urlencoded'|'application/json[; charset=some-charset]')
    *   - (int) connect_timeout
@@ -442,6 +482,15 @@ class RestMini {
       foreach ($set as $key => $val) {
         if (in_array($key, $supported)) {
           $options[$key] = $val;
+          switch ($key) {
+            case 'accept':
+              $this->accept = $val;
+              break;
+            case 'accept_charset':
+            case 'acceptCharset':
+              $this->acceptCharset = $val;
+              break;
+          }
         }
         else {
           $this->error = array(
@@ -466,12 +515,46 @@ class RestMini {
       }
     }
 
+    // Get (deprecated) accept and accept charset set in headers.
+    if (!empty($options['headers'])) {
+      $deprecated = array();
+      $opts_raw = NULL;
+      if (!empty($options['headers']['Accept'])) {
+        $this->accept = $options['headers']['Accept'];
+        $opts_raw = $options;
+        unset($options['headers']['Accept']);
+        $options['accept'] = $this->accept;
+        $deprecated[] = 'headers.Accept - accept';
+      }
+      if (!empty($options['headers']['Accept-Charset'])) {
+        $this->acceptCharset = $options['headers']['Accept-Charset'];
+        if (!$opts_raw) {
+          $opts_raw = $options;
+        }
+        unset($options['headers']['Accept-Charset']);
+        $options['accept_charset'] = $this->acceptCharset;
+        $deprecated[] = 'headers.Accept-Charset - accept_charset';
+      }
+      if ($deprecated) {
+        $this->log(
+          LOG_NOTICE,
+          'Deprecated headers option(s), use root option(s) instead; ' . join(', ', $deprecated),
+          NULL,
+          array(
+            'options seen' => $opts_raw,
+            'options fixed' => $options,
+          )
+        );
+        unset($deprecated, $opts_raw);
+      }
+    }
+
     // Secure valid request body content type, or empty.
     // Request body content type is only required if POST|PUT, so we don't
     // require it to be set at all.
     if (!empty($options['content_type'])
       && $options['content_type'] != 'application/x-www-form-urlencoded'
-      && strpos($options['content_type'], 'application/json') === FALSE
+      && strpos($options['content_type'], 'application/json') !== 0
     ) {
       $this->error = array(
         'code' => static::errorCode('option_value_invalid'),
@@ -867,26 +950,17 @@ class RestMini {
     }
 
     // Headers.
-    if (empty($options['headers'])) {
-      $headers = array(
-        'Accept: ' . $this->accept,
-        'Accept-Charset: UTF-8',
-      );
-    }
-    else {
+    $headers = array(
+      'Accept: ' . $this->accept,
+      'Accept-Charset: ' . $this->acceptCharset,
+    );
+    if (!empty($options['headers'])) {
       // Copy, because we may add header(s), per request.
-      $headers = $options['headers'];
-      $headersConcat = array();
-      foreach ($headers as $key => $val) {
-        $headersConcat[] = $key . ': ' . $val;
+      $hdrs =& $options['headers'];
+      foreach ($hdrs as $key => $val) {
+        $headers[] = $key . ': ' . $val;
       }
-      if (empty($headers['Accept'])) {
-        $headersConcat[] = 'Accept: ' . $this->accept;
-      }
-      if (empty($headers['Accept-Charset'])) {
-        $headersConcat[] = 'Accept-Charset: UTF-8';
-      }
-      $headers =& $headersConcat;
+      unset($hdrs);
     }
     if (!empty($options['service_response_info_wrapper'])) {
       // Custom header which tells RESTmini Service to wrap payload
@@ -1066,6 +1140,25 @@ class RestMini {
     }
     $this->contentType = $contentType;
 
+    // Clean up response headers.
+    if (static::RESPONSE_HEADER_CUMULATE && $this->stops < 2 && !empty($options['get_headers'])) {
+      $rspHdrs =& $this->responseHeaders;
+      $hdrKys = array_keys($rspHdrs);
+      $remHdrs = array();
+      foreach ($hdrKys as $hdr) {
+        if (strpos($hdr, 'cumulative_') === 0) {
+          $remHdrs[] = $hdr;
+        }
+      }
+      if ($remHdrs) {
+        foreach ($remHdrs as $hdr) {
+          unset($rspHdrs[$hdr]);
+        }
+      }
+      unset($rspHdrs, $hdrKys, $remHdrs);
+    }
+
+    // Check response.
     if ($this->response === FALSE) {
       $cUrlErrorCode = curl_errno($resource);
       $cUrlErrorString = static::plaintext(str_replace("\n", ' ', curl_error($resource)));
@@ -1236,10 +1329,13 @@ class RestMini {
    *  - endpoint
    *  - options
    *  - method
+   *  - accept
+   *  - accept_chars
    *  - status
    *  - content_type
    *  - content_length
    *  - headers
+   *  - stops (zero unless option get_headers)
    *  - url
    *  - duration
    *  - error
@@ -1252,15 +1348,39 @@ class RestMini {
       'endpoint' => $this->endpoint,
       'options' => $this->options,
       'method' => $this->method,
+      'accept' => $this->accept,
+      'accept_chars' => $this->acceptCharset,
       // Buckets like result() response info:
       'status' => $this->status,
       'content_type' => $this->contentType,
       'content_length' => $this->contentLength,
       'headers' => $this->responseHeaders,
+      'stops' => $this->stops,
       'url' => $this->url,
+      'started' => $this->started,
       'duration' => $this->duration,
       'error' => $this->error,
     );
+  }
+
+  /**
+   * @return string
+   */
+  public function __toString() {
+    $s = get_class($this) . '(';
+    $info = $this->info();
+    $first = TRUE;
+    foreach ($info as $k => $v) {
+      if ($first) {
+        $first = FALSE;
+      }
+      else {
+        $s .= ', ';
+      }
+      $s .= $k . ':' . $v;
+    }
+
+    return $s . ')';
   }
 
   /**
@@ -1311,7 +1431,9 @@ class RestMini {
         'content_type' => $this->contentType,
         'content_length' => $this->contentLength,
         'headers' => $this->responseHeaders,
+        'stops' => $this->stops,
         'url' => $this->url,
+        'started' => $this->started,
         'duration' => $this->duration,
         'result' => FALSE,
         'error' => $this->error,
@@ -1325,7 +1447,9 @@ class RestMini {
         'content_type' => $this->contentType,
         'content_length' => $this->contentLength,
         'headers' => $this->responseHeaders,
+        'stops' => $this->stops,
         'url' => $this->url,
+        'started' => $this->started,
         'duration' => $this->duration,
         'result' => '',
         'error' => array(),
@@ -1365,7 +1489,9 @@ class RestMini {
         'content_type' => $this->contentType,
         'content_length' => $this->contentLength,
         'headers' => $this->responseHeaders,
+        'stops' => $this->stops,
         'url' => $this->url,
+        'started' => $this->started,
         'duration' => $this->duration,
         'error' => $this->error,
         'result' => NULL,
@@ -1392,7 +1518,9 @@ class RestMini {
         'content_type' => $this->contentType,
         'content_length' => $this->contentLength,
         'headers' => $this->responseHeaders,
+        'stops' => $this->stops,
         'url' => $this->url,
+        'started' => $this->started,
         'duration' => $this->duration,
         'error' => $this->error,
         'result' => NULL,
@@ -1405,7 +1533,9 @@ class RestMini {
         'content_type' => $this->contentType,
         'content_length' => $this->contentLength,
         'headers' => $this->responseHeaders,
+        'stops' => $this->stops,
         'url' => $this->url,
+        'started' => $this->started,
         'duration' => $this->duration,
         'result' => $data,
         'error' => array(),
@@ -1452,6 +1582,7 @@ class RestMini {
     $this->started = 0;
     $this->duration = 0;
     $this->responseHeaders = array();
+    $this->stops = 0;
     $this->status = 0;
     $this->contentType = NULL;
     $this->contentLength = 0;
@@ -1667,35 +1798,58 @@ class RestMini {
   protected function responseHeaderCallback($resource, $headerLine) {
     // Remove trailing \r\n.
     if (($line = trim($headerLine))) {
-      // Find HTTP status text; once. If multiple status texts (considered an
-      // error) the first will rule; the later will be ignored as such.
-      if (!isset($this->responseHeaders['status_text']) && strpos($line, 'HTTP') === 0) {
+      $cumulate = static::RESPONSE_HEADER_CUMULATE;
+      $headers =& $this->responseHeaders;
+      // HTTP status text(s).
+      if (strpos($line, 'HTTP') === 0 && ($pos = strpos($line, ' ')) && ctype_digit(substr($line, $pos + 1, 3))) {
+        $val = substr($line, $pos + 1);
         // Register 100 Continue status.
-        if (strpos($line, '100 Continue')) {
-          $this->responseHeaders['initial_status'] = '100 Continue';
-        }
-        elseif (strpos($line, ' OK') == strlen($line) - 3) {
-          $this->responseHeaders['status_text'] = 'OK';
+        if ($val == '100 Continue') {
+          $headers['initial_status'] = '100 Continue';
         }
         else {
-          $this->responseHeaders['status_text'] = preg_replace('/^HTTPS?\/\d\.\d+ \d+ (.+)$/', '$1', $line);
+          ++$this->stops;
+          // Status text must be without status code.
+          $headers['status_text'] = substr($val, 4);
+          if ($cumulate) {
+            if (isset($headers['cumulative_status'])) {
+              if ($cumulate != 'rtl') {
+                $headers['cumulative_status'] .= static::RESPONSE_HEADER_SEP . $val;
+              }
+              else {
+                $headers['cumulative_status'] = $val . static::RESPONSE_HEADER_SEP . $headers['cumulative_status'];
+              }
+            }
+            else {
+              $headers['cumulative_status'] = $val;
+            }
+          }
         }
       }
       // Straight 'key: value' headers. If dupes, the values must be
       // concatenated as comma-separated list.
       elseif (($pos = strpos($line, ': '))) {
         $name = substr($line, 0, $pos);
-        if (!isset($this->responseHeaders[$name])) {
-          $this->responseHeaders[$name] = substr($line, $pos + 2);
-        }
-        else {
-          $this->responseHeaders[$name] .= ', ' . substr($line, $pos + 2);
+        $val = substr($line, $pos + 2);
+        $headers[$name] = $val;
+        if ($cumulate) {
+          $cumulate_name = 'cumulative_' . $name;
+          if (isset($headers[$cumulate_name])) {
+            if ($cumulate != 'rtl') {
+              $headers[$cumulate_name] .= static::RESPONSE_HEADER_SEP . $val;
+            }
+            else {
+              $headers[$cumulate_name] = $val . static::RESPONSE_HEADER_SEP . $headers[$cumulate_name];
+            }
+          }
+          else {
+            $headers[$cumulate_name] = $val;
+          }
         }
       }
       // Wrongish header, which isn't 'key: value'.
-      // If multiple status texts, all but the first will go here.
       else {
-        $this->responseHeaders[] = $line;
+        $headers[] = $line;
       }
     }
     // Satisfy return value contract with PHP cUrl.

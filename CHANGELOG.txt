@@ -1,3 +1,12 @@
 restminie 1.x, 2016-10-23
 -------------------------
 - New option (str) log_type.
+- Defining Accept and Accept-Charset via options[headers][.] is now deprecated.
+  Use options[accept] and options[accept_charset] instead.
+- If options[get_headers] the number of 'stops' visible in response headers get
+  get recorded.
+- Multiple same-named response headers are no longer recorded in singular
+  buckets, but instead recorded in other cumulutive_{name} buckets;
+  concatenated, right-to-left (default), pipe separated.
+- Request content_type option for JSON must now start with 'application/json';
+  not only contain it.
