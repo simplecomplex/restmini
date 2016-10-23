@@ -104,6 +104,7 @@ class RestMini {
     'headers',
     'get_headers',
     'log_severity_error',
+    'log_type',
     'service_response_info_wrapper',
     'logger',
   );
@@ -408,10 +409,12 @@ class RestMini {
    *   - (str) pass (for [username]:[password])
    *   - (arr) headers
    *   - (bool) get_headers
-   *   - (int) log_severity_error: use that severity level when logging errors.
+   *   - (int) log_severity_error: use that severity level when logging errors
+   *   - (string) log_type: use that log type when logging.
    *   - (bool) service_response_info_wrapper (tell service to wrap response
    *     in object listing service response properties)
-   *   - (obj) logger: PSR-3 logger
+   *   - (obj) logger: PSR-3 logger; will be used directly or as logger for
+   *       Inspect.
    *   Default: empty.
    * @param array $unset
    *   Non-empty: unset keys named like the values of this array.
@@ -1582,24 +1585,31 @@ class RestMini {
   }
 
   /**
-   * Traces Exception, if $exception and SimpleComplex\Inspect\Inspect exists.
+   * Uses optional PSR-3 logger and/or Inspect if applicable.
    *
    * @param integer $severity
    * @param string $message
    * @param \Exception|NULL $exception
+   *   Ignored if no Inspect library.
    * @param mixed $variable
+   *   Ignored if no Inspect library.
+   *   Ignored if truthy arg $exception.
    */
   protected function log($severity, $message, $exception = NULL, $variable = NULL) {
     static $inspect = -1, $logger;
+    // Check for Inspect, and whether this object was initialized with a PSR-3
+    // logger (as option).
     if ($inspect == -1) {
-      $filename = dirname(__FILE__) . '/../../inspect/src/Inspect.php';
-      if (file_exists($filename)) {
+      // This implementation expects the Inspect library source to be placed
+      // right beside this source (Composer would place it there).
+      if (file_exists(dirname(__FILE__) . '/../../inspect/src/Inspect.php')) {
         include_once dirname(__FILE__) . '/../../inspect/src/Inspect.php';
         $inspect = 1;
       }
       else {
         $inspect = 0;
       }
+      // Use PSR-3 logger; directly or as logger for Inspect.
       if (!empty($this->options['logger'])) {
         $logger = $this->options['logger'];
         if (!is_object($logger) || !method_exists($logger, 'log')) {
@@ -1609,7 +1619,7 @@ class RestMini {
     }
     if ($inspect) {
       $opts = array(
-        'type' => 'restmini',
+        'type' => !empty($this->options['log_type']) ? $this->options['log_type'] : 'restmini',
         'message' => $message,
         'severity' => $severity,
         'wrappers' => 1,
@@ -1617,6 +1627,7 @@ class RestMini {
       if ($logger) {
         $opts['logger'] = $logger;
       }
+      // Trace exception, or inspect variable.
       if ($exception) {
         \SimpleComplex\Inspect\Inspect::trace($exception, $opts);
       }
@@ -1624,11 +1635,17 @@ class RestMini {
         \SimpleComplex\Inspect\Inspect::log($variable, $opts);
       }
     }
-    elseif ($logger) {
-      $logger->log($severity, $message);
-    }
     else {
-      error_log($message);
+      if ($exception) {
+        $message .= ': (' . $exception->getCode() . ') ' . $exception->getMessage()
+          . ' @' . $exception->getFile() . ':' . $exception->getLine();
+      }
+      if ($logger) {
+        $logger->log($severity, $message);
+      }
+      else {
+        error_log($message);
+      }
     }
   }
 
