@@ -1,5 +1,5 @@
-restminie 1.x, 2016-10-23
--------------------------
+restmini 1.x, 2016-10-23
+------------------------
 - New option (str) log_type.
 - Defining Accept and Accept-Charset via options[headers][.] is now deprecated.
   Use options[accept] and options[accept_charset] instead.
