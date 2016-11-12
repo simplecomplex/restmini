@@ -25,7 +25,7 @@ class RestMini {
 
   /**
    * Default connect timeout in seconds, overridable by Drupal conf variable
-   * 'restmini_client_contimeout'.
+   * 'contimeout'.
    *
    * @var integer
    */
@@ -33,11 +33,20 @@ class RestMini {
 
   /**
    * Default request timeout in seconds; overridable by Drupal conf variable
-   * 'restmini_client_reqtimeout'.
+   * 'reqtimeout'.
    *
    * @var integer
    */
   const REQUEST_TIMEOUT_DEFAULT = 20;
+
+  /**
+   * Default (minimum) surplus PHP execution time to leave for script execution
+   * after reception of response.
+   * In seconds; overridable by Drupal conf variable 'surplusexectime'.
+   *
+   * @var integer
+   */
+  const SURPLUS_EXECTIME_DEFAULT = 5;
 
   /**
    * Default when no 'log_type' option.
@@ -141,6 +150,24 @@ class RestMini {
     'service_response_info_wrapper',
     'logger',
   );
+
+  /**
+   * Record of last time (if any) a client postponed PHP execution timeout.
+   *
+   * @var integer
+   */
+  protected static $tExecTimeoutPostponed = 0;
+
+  /**
+   * Default request timeout resolved.
+   *
+   * @see RestMini::REQUEST_TIMEOUT_DEFAULT
+   * @see RestMini::configGet()
+   * @see RestMini::__construct()
+   *
+   * @var integer
+   */
+  protected static $requestTimeoutDefault = 0;
 
   /**
    *  If error, buckets are:
@@ -340,6 +367,11 @@ class RestMini {
     if ($endpoint !== '') {
       // Secure leading slash.
       $this->endpoint = ($endpoint{0} == '/' ? '' : '/') . $endpoint;
+    }
+
+    // Get current request timeout default; we use it a lot.
+    if (!static::$requestTimeoutDefault) {
+      static::$requestTimeoutDefault = static::configGet('', 'reqtimeout', static::REQUEST_TIMEOUT_DEFAULT);
     }
 
     // Resolve options.
@@ -578,7 +610,12 @@ class RestMini {
       $options['connect_timeout'] = static::configGet('', 'contimeout', static::CONNECT_TIMEOUT_DEFAULT);
     }
     if (!$options || !array_key_exists('request_timeout', $options)) {
-      $options['request_timeout'] = static::configGet('', 'reqtimeout', static::REQUEST_TIMEOUT_DEFAULT);
+      $options['request_timeout'] = static::$requestTimeoutDefault;
+    }
+    // cUrl request timeout includes connection timeout, so effectively
+    // request timeout cannot be less than connect timeout.
+    if ($options['request_timeout'] <= $options['connect_timeout']) {
+      $options['request_timeout'] = $options['connect_timeout'] + 1;
     }
 
     // Resolve SSL issues.
@@ -904,15 +941,22 @@ class RestMini {
       CURLOPT_TIMEOUT => $options['request_timeout'],
     );
 
-    // Handle long request timeout; make sure PHP doesn't timeout
+    // Handle long request timeout; make sure PHP doesn't time out
     // before cURL does.
-    if (($requestTimeout = $options['request_timeout']) > static::REQUEST_TIMEOUT_DEFAULT
-      // Only if any max_execution_time at all (is zero in drush/CLI mode).
+    // Only if any max_execution_time at all (is zero in CLI mode).
+    if ($options['request_timeout'] > static::$requestTimeoutDefault
       && ($envTimeout = ini_get('max_execution_time'))
-      // Add 10%; PHP's timeout have to be more than cURL's.
-      && ($requestTimeout = (int)ceil($requestTimeout * 1.1)) > $envTimeout
     ) {
-      set_time_limit($requestTimeout);
+      // We cannot know if/when anybody else postponed execution timeout,
+      // but at least keep track of own postponal(s).
+      $tLastPostponed = static::$tExecTimeoutPostponed;
+      $elapsed = time() - (!$tLastPostponed ? (int) $_SERVER['REQUEST_TIME'] : $tLastPostponed);
+      $remaining = (int) $envTimeout - $elapsed;
+      $needed = $options['request_timeout'] + static::configGet('', 'surplusexectime', static::SURPLUS_EXECTIME_DEFAULT);
+      if ($remaining < $needed) {
+        static::$tExecTimeoutPostponed = time();
+        set_time_limit($needed);
+      }
     }
 
     // Getting response header comes with a performance price tag,
@@ -1688,6 +1732,7 @@ class RestMini {
    *  Server environment variable names used:
    *  - lib_simplecomplex_restmini_contimeout
    *  - lib_simplecomplex_restmini_reqtimeout
+   *  - lib_simplecomplex_restmini_surplusexectime
    *  - lib_simplecomplex_restmini_sslverifydefnot
    *  - lib_simplecomplex_restmini_cacertssrc
    *  - lib_simplecomplex_restmini_cacertsdir

@@ -1,3 +1,8 @@
+restmini 1.x, 2016-11-12
+------------------------
+- Request timeout/execution timeout algo should take elapsed execution time into
+  consideration.
+
 restmini 1.x, 2016-10-23
 ------------------------
 - New option (str) log_type.
