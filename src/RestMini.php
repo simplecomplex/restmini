@@ -25,7 +25,7 @@ class RestMini {
 
   /**
    * Default connect timeout in seconds, overridable by Drupal conf variable
-   * 'restmini_client_contimeout'.
+   * 'contimeout'.
    *
    * @var integer
    */
@@ -33,7 +33,7 @@ class RestMini {
 
   /**
    * Default request timeout in seconds; overridable by Drupal conf variable
-   * 'restmini_client_reqtimeout'.
+   * 'reqtimeout'.
    *
    * @var integer
    */
@@ -904,7 +904,7 @@ class RestMini {
       CURLOPT_TIMEOUT => $options['request_timeout'],
     );
 
-    // Handle long request timeout; make sure PHP doesn't timeout
+    // Handle long request timeout; make sure PHP doesn't time out
     // before cURL does.
     if (($requestTimeout = $options['request_timeout']) > static::REQUEST_TIMEOUT_DEFAULT
       // Only if any max_execution_time at all (is zero in drush/CLI mode).
