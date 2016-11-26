@@ -1697,6 +1697,8 @@ class Client {
    *
    * This implementation attempts to get from server environment variables.
    *
+   * Beware that environment variables are always strings.
+   *
    *  Server environment variable names used:
    *  - lib_simplecomplex_restmini_client_contimeout
    *  - lib_simplecomplex_restmini_client_reqtimeout
@@ -1712,9 +1714,10 @@ class Client {
    *   Default: NULL.
    *
    * @return mixed
+   *   String, unless no such var and arg default isn't string.
    */
   protected static function configGet($domain, $name, $default = NULL) {
-    return ($val = getenv($domain ? $domain : static::CONFIG_DOMAIN . '_' . $name)) !== FALSE ? $val : $default;
+    return ($val = getenv(($domain ? $domain : static::CONFIG_DOMAIN) . '_' . $name)) !== FALSE ? $val : $default;
   }
 
   /**
