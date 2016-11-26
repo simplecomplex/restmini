@@ -1,3 +1,7 @@
+restmini 1.x, 2016-11-26
+------------------------
+- Error logs must include request duration.
+
 restmini 1.x, 2016-11-12
 ------------------------
 - Request timeout/execution timeout algo should take elapsed execution time into

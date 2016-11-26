@@ -816,7 +816,6 @@ class RestMini {
    *   Example: http://ser.ver/end-point?first=param&second=param
    *   Default: empty.
    * @param array|NULL $bodyParams
-   *   Ignored unless $method is POST or PUT.
    *   Default: empty.
    *
    * @return RestMini
@@ -842,7 +841,6 @@ class RestMini {
    *   Example: http://ser.ver/end-point?first=param&second=param
    *   Default: empty.
    * @param array|NULL $bodyParams
-   *   Ignored unless $method is POST or PUT.
    *   Default: empty.
    *
    * @return RestMini
@@ -1085,8 +1083,8 @@ class RestMini {
           array(
             'server' => $this->server,
             'endpoint' => $this->endpoint,
-            'options' => $options,
             'method' => $method,
+            'options' => $options,
             'path params' => $pathParams,
             'query params' => $queryParams,
             'body params' => $bodyParams,
@@ -1122,8 +1120,8 @@ class RestMini {
         array(
           'server' => $this->server,
           'endpoint' => $this->endpoint,
-          'options' => $options,
           'method' => $method,
+          'options' => $options,
           'path params' => $pathParams,
           'query params' => $queryParams,
           'body params' => $bodyParams,
@@ -1149,8 +1147,8 @@ class RestMini {
         array(
           'server' => $this->server,
           'endpoint' => $this->endpoint,
-          'options' => $options,
           'method' => $method,
+          'options' => $options,
           'path params' => $pathParams,
           'query params' => $queryParams,
           'body params' => $bodyParams,
@@ -1267,12 +1265,13 @@ class RestMini {
           'response headers' => $this->responseHeaders,
           'server' => $this->server,
           'endpoint' => $this->endpoint,
-          'options' => $options,
           'method' => $method,
+          'options' => $options,
           'path params' => $pathParams,
           'query params' => $queryParams,
           'body params' => $bodyParams,
           'url' => $this->url,
+          'duration' => $this->duration,
           'error' => $this->error,
           'curl error code' => $cUrlErrorCode,
           'curl error message' => $cUrlErrorString,
@@ -1307,12 +1306,13 @@ class RestMini {
           'content_length' => $this->contentLength,
           'server' => $this->server,
           'endpoint' => $this->endpoint,
-          'options' => $options,
           'method' => $method,
+          'options' => $options,
           'path params' => $pathParams,
           'query params' => $queryParams,
           'body params' => $bodyParams,
           'url' => $this->url,
+          'duration' => $this->duration,
           'error' => $this->error,
         )
       );
@@ -1368,39 +1368,48 @@ class RestMini {
   /**
    * Get all info about the client and it's last request (if any).
    *
-   *  Properties:
+   *  Request properties:
+   *  - method (also returned when truthy arg $response)
+   *  - url (also returned when truthy arg $response)
    *  - server
    *  - endpoint
    *  - options
-   *  - method
    *  - accept
    *  - accept_chars
+   *
+   *  Response properties:
+   *  - parser (but not returned when truthy arg $response)
    *  - status
    *  - content_type
    *  - content_length
    *  - headers
    *  - stops (zero unless option get_headers)
-   *  - url
+   *  - started
    *  - duration
    *  - error
    *
+   * @param boolean $response
+   *   Truthy: get only response related properties.
+   *
    * @return array
    */
-  public function info() {
+  public function info($response = FALSE) {
     return array(
+      'method' => $this->method,
+      'url' => $this->url,
+    ) + ($response ? array() : array(
       'server' => $this->server,
       'endpoint' => $this->endpoint,
       'options' => $this->options,
-      'method' => $this->method,
       'accept' => $this->accept,
       'accept_chars' => $this->acceptCharset,
-      // Buckets like result() response info:
+      'parser' => $this->parser,
+    )) + array(
       'status' => $this->status,
       'content_type' => $this->contentType,
       'content_length' => $this->contentLength,
       'headers' => $this->responseHeaders,
       'stops' => $this->stops,
-      'url' => $this->url,
       'started' => $this->started,
       'duration' => $this->duration,
       'error' => $this->error,
@@ -1470,33 +1479,19 @@ class RestMini {
    */
   public function result($fetchKeyPath = array(), $responseInfo = FALSE) {
     if ($this->error) {
-      return !$responseInfo ? FALSE : array(
-        'status' => $this->status,
-        'content_type' => $this->contentType,
-        'content_length' => $this->contentLength,
-        'headers' => $this->responseHeaders,
-        'stops' => $this->stops,
-        'url' => $this->url,
-        'started' => $this->started,
-        'duration' => $this->duration,
+      return !$responseInfo ? FALSE : (
+        $this->info(TRUE) + array(
         'result' => FALSE,
-        'error' => $this->error,
+        )
       );
     }
 
     // Empty.
     if ($this->response == '') {
-      return !$responseInfo ? '' : array(
-        'status' => $this->status,
-        'content_type' => $this->contentType,
-        'content_length' => $this->contentLength,
-        'headers' => $this->responseHeaders,
-        'stops' => $this->stops,
-        'url' => $this->url,
-        'started' => $this->started,
-        'duration' => $this->duration,
-        'result' => '',
-        'error' => array(),
+      return !$responseInfo ? '' : (
+        $this->info(TRUE) + array(
+          'result' => '',
+        )
       );
     }
 
@@ -1528,17 +1523,10 @@ class RestMini {
         'name' => 'content_type_mismatch',
         'message' => 'Response content type doesnt match parser',
       );
-      return !$responseInfo ? NULL : array(
-        'status' => $this->status,
-        'content_type' => $this->contentType,
-        'content_length' => $this->contentLength,
-        'headers' => $this->responseHeaders,
-        'stops' => $this->stops,
-        'url' => $this->url,
-        'started' => $this->started,
-        'duration' => $this->duration,
-        'error' => $this->error,
-        'result' => NULL,
+      return !$responseInfo ? NULL : (
+        $this->info(TRUE) + array(
+          'result' => NULL,
+        )
       );
     }
 
@@ -1557,32 +1545,18 @@ class RestMini {
         'name' => 'response_parse',
         'message' => 'Failed to parse response',
       );
-      return !$responseInfo ? NULL : array(
-        'status' => $this->status,
-        'content_type' => $this->contentType,
-        'content_length' => $this->contentLength,
-        'headers' => $this->responseHeaders,
-        'stops' => $this->stops,
-        'url' => $this->url,
-        'started' => $this->started,
-        'duration' => $this->duration,
-        'error' => $this->error,
-        'result' => NULL,
+      return !$responseInfo ? NULL : (
+        $this->info(TRUE) + array(
+          'result' => NULL,
+        )
       );
     }
 
     if (!$fetchKeyPath) {
-      return !$responseInfo ? $data : array(
-        'status' => $this->status,
-        'content_type' => $this->contentType,
-        'content_length' => $this->contentLength,
-        'headers' => $this->responseHeaders,
-        'stops' => $this->stops,
-        'url' => $this->url,
-        'started' => $this->started,
-        'duration' => $this->duration,
-        'result' => $data,
-        'error' => array(),
+      return !$responseInfo ? $data : (
+        $this->info(TRUE) + array(
+          'result' => $data,
+        )
       );
     }
 
