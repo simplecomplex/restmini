@@ -1,6 +1,8 @@
 restmini 1.x, 2016-11-26
 ------------------------
 - Error logs must include request duration.
+- Client class renamed to Client; from RestMini. Conf var domain renamed to
+  lib_simplecomplex_restmini_client; from lib_simplecomplex_restmini.
 
 restmini 1.x, 2016-11-12
 ------------------------

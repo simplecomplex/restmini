@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Contains \SimpleComplex\RestMini\RestMini.
+ * Contains \SimpleComplex\RestMini\Client.
  */
 
 namespace SimpleComplex\RestMini;
@@ -9,12 +9,12 @@ namespace SimpleComplex\RestMini;
 /**
  * Small powerful REST client.
  */
-class RestMini {
+class Client {
 
   /**
    * @var string
    */
-  const CONFIG_DOMAIN = 'lib_simplecomplex_restmini';
+  const CONFIG_DOMAIN = 'lib_simplecomplex_restmini_client';
 
   /**
    * Whether to SSL verify peer, when option ssl_verify not set.
@@ -81,9 +81,9 @@ class RestMini {
 
   /**
    * Actual numeric values may be affected by non-zero $errorCodeOffset
-   * classes extending RestMini.
+   * of classes extending Client.
    *
-   * @see RestMini::$errorCodeOffset
+   * @see Client::$errorCodeOffset
    *
    * @var array $errorCodes
    */
@@ -124,7 +124,7 @@ class RestMini {
   );
 
   /**
-   * @see RestMini::alterOptions()
+   * @see Client::alterOptions()
    *
    * @var array
    */
@@ -161,9 +161,9 @@ class RestMini {
   /**
    * Default request timeout resolved.
    *
-   * @see RestMini::REQUEST_TIMEOUT_DEFAULT
-   * @see RestMini::configGet()
-   * @see RestMini::__construct()
+   * @see Client::REQUEST_TIMEOUT_DEFAULT
+   * @see Client::configGet()
+   * @see Client::__construct()
    *
    * @var integer
    */
@@ -293,7 +293,7 @@ class RestMini {
   protected $response;
 
   /**
-   * @see RestMini::alterOptions()
+   * @see Client::alterOptions()
    *
    * @param string $server
    *   Protocol + domain (~ http://ser.ver).
@@ -305,7 +305,7 @@ class RestMini {
    *   Leading slash is optional; will be prepended if missing.
    *   Default: empty.
    * @param array $options
-   *   Supported: see RestMini::alterOptions().
+   *   Supported: see Client::alterOptions().
    *   Default: empty.
    */
   public function __construct($server, $endpoint = '', $options = array()) {
@@ -383,14 +383,14 @@ class RestMini {
    *
    * @code
    * // Get JSON-decoded response.
-   * $data = RestMini::make('http://server', '/endpoint')->get()->result();
+   * $data = Client::make('http://server', '/endpoint')->get()->result();
    * // Check status first.
-   * $request = RestMini::make('http://server', '/endpoint')->get();
+   * $request = Client::make('http://server', '/endpoint')->get();
    * if ($request->status() == 200) {
    *   $data = $request->result();
    * }
    * // Get all relevant properties in one go:
-   * $response = RestMini::make('http://server', '/endpoint')->get()->result(TRUE);
+   * $response = Client::make('http://server', '/endpoint')->get()->result(TRUE);
    * if ($response['status'] == 200) {
    *   // Use $response['result'] ...
    * }
@@ -401,10 +401,10 @@ class RestMini {
    *   // ...
    * }
    * // Get raw response.
-   * $raw = RestMini::make('http://server', '/endpoint')->get()->raw():
+   * $raw = Client::make('http://server', '/endpoint')->get()->raw():
    * @endcode
    *
-   * @see RestMini::alterOptions()
+   * @see Client::alterOptions()
    *
    * @param string $server
    *   Protocol + domain (~ http://ser.ver).
@@ -416,11 +416,11 @@ class RestMini {
    *   Leading slash is optional; will be prepended if missing.
    *   Default: empty.
    * @param array $options
-   *   Supported: see RestMini::alterOptions().
+   *   Supported: see Client::alterOptions().
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return Client|static
+   *   Client or extending type.
    */
   public static function make($server, $endpoint, $options = array()) {
     return new static($server, $endpoint, $options);
@@ -429,7 +429,7 @@ class RestMini {
   /**
    * Get list of names of options supported.
    *
-   * @see RestMini::alterOptions()
+   * @see Client::alterOptions()
    *
    * @return array
    */
@@ -449,7 +449,7 @@ class RestMini {
    * to module defaults.
    *
    * @code
-   * $client = new RestMini('http://ser.ver', '/end-point');
+   * $client = new Client('http://ser.ver', '/end-point');
    * // First request, get index.
    * $list = $client->get();
    * // ...
@@ -503,8 +503,7 @@ class RestMini {
    *   Non-empty: unset keys named like the values of this array.
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this
    */
   public function alterOptions($set = array(), $unset = array()) {
     $options =& $this->options;
@@ -759,7 +758,7 @@ class RestMini {
    *
    * Chainable, returns self.
    *
-   * @see RestMini::make()
+   * @see Client::make()
    *
    * @param array|NULL $pathParams
    *   Each bucket will be added to the server + endpoint URL.
@@ -770,8 +769,7 @@ class RestMini {
    *   Example: http://ser.ver/end-point?first=param&second=param
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this
    */
   public function head($pathParams = NULL, $queryParams = NULL) {
     return $this->request('HEAD', $pathParams, $queryParams);
@@ -782,7 +780,7 @@ class RestMini {
    *
    * Chainable, returns self.
    *
-   * @see RestMini::make()
+   * @see Client::make()
    *
    * @param array|NULL $pathParams
    *   Each bucket will be added to the server + endpoint URL.
@@ -793,8 +791,7 @@ class RestMini {
    *   Example: http://ser.ver/end-point?first=param&second=param
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this.
    */
   public function get($pathParams = NULL, $queryParams = NULL) {
     return $this->request('GET', $pathParams, $queryParams);
@@ -805,7 +802,7 @@ class RestMini {
    *
    * Chainable, returns self.
    *
-   * @see RestMini::make()
+   * @see Client::make()
    *
    * @param array|NULL $pathParams
    *   Each bucket will be added to the server + endpoint URL.
@@ -818,8 +815,7 @@ class RestMini {
    * @param array|NULL $bodyParams
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this
    */
   public function post($pathParams = NULL, $queryParams = NULL, $bodyParams = NULL) {
     return $this->request('POST', $pathParams, $queryParams, $bodyParams);
@@ -830,7 +826,7 @@ class RestMini {
    *
    * Chainable, returns self.
    *
-   * @see RestMini::make()
+   * @see Client::make()
    *
    * @param array|NULL $pathParams
    *   Each bucket will be added to the server + endpoint URL.
@@ -843,8 +839,7 @@ class RestMini {
    * @param array|NULL $bodyParams
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this
    */
   public function put($pathParams = NULL, $queryParams = NULL, $bodyParams = NULL) {
     return $this->request('PUT', $pathParams, $queryParams, $bodyParams);
@@ -855,7 +850,7 @@ class RestMini {
    *
    * Chainable, returns self.
    *
-   * @see RestMini::make()
+   * @see Client::make()
    *
    * @param array|NULL $pathParams
    *   Each bucket will be added to the server + endpoint URL.
@@ -866,8 +861,7 @@ class RestMini {
    *   Example: http://ser.ver/end-point?first=param&second=param
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this
    */
   public function delete($pathParams = NULL, $queryParams = NULL) {
     return $this->request('DELETE', $pathParams, $queryParams);
@@ -875,6 +869,8 @@ class RestMini {
 
   /**
    * Resets instance vars that may get populated upon request.
+   *
+   * @see Client::make()
    *
    * @param $method
    *   GET ~ index|retrieve (default).
@@ -889,8 +885,7 @@ class RestMini {
    *   Ignored unless $method is POST or PUT.
    *   Default: empty.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this
    */
   public function request($method = 'GET', $pathParams = NULL, $queryParams = NULL, $bodyParams = NULL) {
     // Check for previous error, like empty constructor arg $server.
@@ -1461,7 +1456,7 @@ class RestMini {
    *  - (arr) error
    *
    * @code
-   * $get_result_key = RestMini::make('http://server', '/endpoint')->get()->result(array('remote', 'server', 'wraps', 'my', 'data'));
+   * $get_result_key = Client::make('http://server', '/endpoint')->get()->result(array('remote', 'server', 'wraps', 'my', 'data'));
    * @endcode
    *
    * @param array $fetchKeyPath
@@ -1590,8 +1585,7 @@ class RestMini {
    * No need to call this method prior to a new request;
    * the get|post|put|delete() methods call it automatically.
    *
-   * @return RestMini
-   *   Or extending type.
+   * @return $this
    */
   public function reset() {
     $this->error = array();
@@ -1648,7 +1642,7 @@ class RestMini {
    *
    * Meant to be overridden in extending class.
    *
-   * @see RestMini::request()
+   * @see Client::request()
    *
    * @return string
    */
@@ -1704,12 +1698,12 @@ class RestMini {
    * This implementation attempts to get from server environment variables.
    *
    *  Server environment variable names used:
-   *  - lib_simplecomplex_restmini_contimeout
-   *  - lib_simplecomplex_restmini_reqtimeout
-   *  - lib_simplecomplex_restmini_surplusexectime
-   *  - lib_simplecomplex_restmini_sslverifydefnot
-   *  - lib_simplecomplex_restmini_cacertssrc
-   *  - lib_simplecomplex_restmini_cacertsdir
+   *  - lib_simplecomplex_restmini_client_contimeout
+   *  - lib_simplecomplex_restmini_client_reqtimeout
+   *  - lib_simplecomplex_restmini_client_surplusexectime
+   *  - lib_simplecomplex_restmini_client_sslverifydefnot
+   *  - lib_simplecomplex_restmini_client_cacertssrc
+   *  - lib_simplecomplex_restmini_client_cacertsdir
    *
    * @param string $domain
    *   Default: static::CONFIG_DOMAIN.
