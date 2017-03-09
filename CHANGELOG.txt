@@ -1,3 +1,11 @@
+restmini 1.x, 2017-03-09
+------------------------
+- Renamed 'log_severity' option (from 'log_severity_error'). And it's default
+  is now a class constant.
+- Default log severity is now warning (not error), because the user of this
+  HTTP client (not the client self) should interprete and decide whether
+  a request/response error is an actual error.
+
 restmini 1.x, 2016-11-26
 ------------------------
 - Error logs must include request duration.

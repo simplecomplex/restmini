@@ -49,6 +49,13 @@ class Client {
   const SURPLUS_EXECTIME_DEFAULT = 5;
 
   /**
+   * Default when no 'log_severity' option.
+   *
+   * @var string
+   */
+  const LOG_SEVERITY_DEFAULT = LOG_WARNING;
+
+  /**
    * Default when no 'log_type' option.
    *
    * @var string
@@ -145,7 +152,7 @@ class Client {
     // Array; key => value, not 'key: value'.
     'headers',
     'get_headers',
-    'log_severity_error',
+    'log_severity',
     'log_type',
     'service_response_info_wrapper',
     'logger',
@@ -492,7 +499,8 @@ class Client {
    *   - (str) pass (for [username]:[password])
    *   - (arr) headers
    *   - (bool) get_headers
-   *   - (int) log_severity_error: use that severity level when logging errors
+   *   - (int) log_severity: severity level when logging any error type except
+   *     logical error and (runtime) configuration error
    *   - (string) log_type: use that log type when logging.
    *   - (bool) service_response_info_wrapper (tell service to wrap response
    *     in object listing service response properties)
@@ -689,6 +697,29 @@ class Client {
               )
             );
         }
+      }
+    }
+
+    // log_severity must be integer; RFC-5424.
+    if (isset($options['log_severity'])) {
+      if (!ctype_digit($options['log_severity']) || $options['log_severity'] < 0 || $options['log_severity'] > 7) {
+        $this->error = array(
+          'code' => static::errorCode('option_value_invalid'),
+          'name' => 'option_value_invalid',
+          'message' => $em = 'Option \'log_severity\' value must be an integer 7 thru 0',
+        );
+        $this->log(
+          LOG_ERR,
+          $em,
+          NULL,
+          array(
+            'options' => $options,
+            'set' => $set,
+            'unset' => $unset,
+          )
+        );
+        // Use class constant default.
+        unset($options['log_severity']);
       }
     }
 
@@ -1109,7 +1140,7 @@ class Client {
         'message' => 'Failed to initiate connection',
       );
       $this->log(
-        isset($this->options['log_severity_error']) ? $this->options['log_severity_error'] : LOG_ERR,
+        isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to initiate connection',
         NULL,
         array(
@@ -1136,7 +1167,7 @@ class Client {
         'message' => 'Failed to set request options',
       );
       $this->log(
-        isset($this->options['log_severity_error']) ? $this->options['log_severity_error'] : LOG_ERR,
+        isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to set request options',
         NULL,
         array(
@@ -1251,7 +1282,7 @@ class Client {
         'message' => $em,
       );
       $this->log(
-        isset($this->options['log_severity_error']) ? $this->options['log_severity_error'] : LOG_ERR,
+        isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         $em,
         //. ((!$this->ssl || (array_key_exists('ssl_verify', $options) && !$options['ssl_verify'])) ? '' : ', check ssl_verify'),
         NULL,
@@ -1291,7 +1322,7 @@ class Client {
         'message' => 'Response error',
       );
       $this->log(
-        isset($this->options['log_severity_error']) ? $this->options['log_severity_error'] : LOG_ERR,
+        isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Response error status code ' . $this->status,
         NULL,
         array(
@@ -1530,7 +1561,7 @@ class Client {
     // Parse error.
     if ($data === $this->parser['error']) {
       $this->log(
-        isset($this->options['log_severity_error']) ? $this->options['log_severity_error'] : LOG_ERR,
+        isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to parse response',
         NULL,
         get_object_vars($this)
