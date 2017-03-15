@@ -155,6 +155,7 @@ class Client {
     'log_severity',
     'log_type',
     'service_response_info_wrapper',
+    'record_params',
     'logger',
   );
 
@@ -219,6 +220,13 @@ class Client {
    * @var string
    */
   protected $url = '';
+
+  /**
+   * Last request parameters path+query+body, if option record_params.
+   *
+   * @var null|array
+   */
+  protected $paramsRecorded;
 
   /**
    * Accept request header value, unless overridden by options[accept]
@@ -504,6 +512,7 @@ class Client {
    *   - (string) log_type: use that log type when logging.
    *   - (bool) service_response_info_wrapper (tell service to wrap response
    *     in object listing service response properties)
+   *   - (bool) record_params: make path+query+body params available
    *   - (obj) logger: PSR-3 logger; will be used directly or as logger for
    *       Inspect.
    *   Default: empty.
@@ -929,6 +938,15 @@ class Client {
 
     $this->url = $this->server . $this->endpointAdjust();
 
+    // Options.
+    $options =& $this->options;
+
+    $record_params = FALSE;
+    if (!empty($options['record_params'])) {
+      $record_params = TRUE;
+      $this->paramsRecorded = array();
+    }
+
     // Path parameters: double URL encoding of some chars,
     // to prevent parsing errors.
     // A slash in a path parameter could otherwise be interpreted
@@ -937,6 +955,9 @@ class Client {
     if ($pathParams) {
       foreach ($pathParams as $val) {
         $this->url .= '/' . rawurlencode(str_replace(array('/', '?', '&', '='), array('%2F', '3F', '26', '3D'), $val));
+      }
+      if ($record_params) {
+        $this->paramsRecorded['path'] =& $pathParams;
       }
     }
 
@@ -949,10 +970,12 @@ class Client {
         $this->url .= (!(++$i) && (!$this->endpoint || !strpos($this->endpoint, '?')) ? '?' : '&')
           . $key . '=' . rawurlencode($val);
       }
+      if ($record_params) {
+        $this->paramsRecorded['query'] =& $queryParams;
+      }
     }
 
-    // Options.
-    $options =& $this->options;
+    // Basic cURL options.
     $curlOpts = array(
       // Don't include header in output.
       CURLOPT_HEADER => FALSE,
@@ -1062,6 +1085,9 @@ class Client {
           else {
             $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = json_encode($bodyParams));
           }
+          if ($record_params) {
+            $this->paramsRecorded['body'] =& $bodyParams;
+          }
         }
         else {
           // Prevent 413 Request Entity Too Large error; Apache responds
@@ -1092,6 +1118,9 @@ class Client {
           }
           else {
             $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = json_encode($bodyParams));
+          }
+          if ($record_params) {
+            $this->paramsRecorded['body'] =& $bodyParams;
           }
         }
         else {
@@ -1414,23 +1443,36 @@ class Client {
    *  - duration
    *  - error
    *
-   * @param boolean $response
+   * @param boolean $responseOnly
    *   Truthy: get only response related properties.
    *
    * @return array
    */
-  public function info($response = FALSE) {
+  public function info($responseOnly = FALSE) {
+    if (!$responseOnly) {
+      $request = array(
+        'server' => $this->server,
+        'endpoint' => $this->endpoint,
+        'options' => $this->options,
+        'accept' => $this->accept,
+        'accept_chars' => $this->acceptCharset,
+        'parser' => $this->parser,
+      );
+      if ($this->started && !empty($this->options['record_params'])) {
+        $request['params'] = $this->paramsRecorded;
+        //if (!empty($this->paramsRecorded['body']) && strpos($this->options['content_type'], 'application/json') === 0) {
+        //  $request['params']['body_json'] = json_encode($this->paramsRecorded['body']);
+        //}
+      }
+    }
+    else {
+      $request = array();
+    }
+
     return array(
       'method' => $this->method,
       'url' => $this->url,
-    ) + ($response ? array() : array(
-      'server' => $this->server,
-      'endpoint' => $this->endpoint,
-      'options' => $this->options,
-      'accept' => $this->accept,
-      'accept_chars' => $this->acceptCharset,
-      'parser' => $this->parser,
-    )) + array(
+    )+ $request + array(
       'status' => $this->status,
       'content_type' => $this->contentType,
       'content_length' => $this->contentLength,
@@ -1622,6 +1664,7 @@ class Client {
     $this->error = array();
     $this->method = '';
     $this->url = '';
+    $this->paramsRecorded = NULL;
     $this->started = 0;
     $this->duration = 0;
     $this->responseHeaders = array();
