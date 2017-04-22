@@ -1172,7 +1172,13 @@ class Client {
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to initiate connection',
         NULL,
-        $this->info('request')
+        $this->info('request') + ($record_args ? array() : array(
+          'args' => array(
+            'path' => $pathArgs,
+            'query' => $queryArgs,
+            'body' => $bodyArgs,
+          )
+        ))
       );
 
       return $this;
@@ -1189,7 +1195,13 @@ class Client {
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to set request options',
         NULL,
-        $this->info('request') + array(
+        $this->info('request') + ($record_args ? array() : array(
+          'args' => array(
+            'path' => $pathArgs,
+            'query' => $queryArgs,
+            'body' => $bodyArgs,
+          )
+        )) + array(
           'curl info' => curl_getinfo($resource),
         )
       );
@@ -1295,7 +1307,13 @@ class Client {
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         $em,
         NULL,
-        $this->info() + array(
+        $this->info() + ($record_args ? array() : array(
+          'args' => array(
+            'path' => $pathArgs,
+            'query' => $queryArgs,
+            'body' => $bodyArgs,
+          )
+        )) + array(
           'curl error code' => $cUrlErrorCode,
           'curl error message' => $cUrlErrorString,
           'curl info' => curl_getinfo($resource),
