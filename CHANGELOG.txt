@@ -5,6 +5,7 @@ restmini 1.x, 2017-04-22
 - Renamed path/query/body arguments; from 'parameters'.
 - New optional info() parameter 'only'; values request|response.
 - Use the info() method when logging errors.
+- Release 0.9.
 
 restmini 1.x, 2017-03-09
 ------------------------

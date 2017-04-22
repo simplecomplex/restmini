@@ -1,0 +1,23 @@
+{
+    "name": "simplecomplex/restmini",
+    "type": "library",
+    "description": "Small powerful REST client.",
+    "keywords": ["HTTP", "REST"],
+    "homepage": "https://github.com/simplecomplex/restmini",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jacob Friis Mathiasen",
+            "email": "jacob.friis@simplecomplex.net"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.0",
+        "ext-curl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "SimpleComplex\\RestMini\\": "src/"
+        }
+    }
+}
