@@ -155,7 +155,7 @@ class Client {
     'log_severity',
     'log_type',
     'service_response_info_wrapper',
-    'record_params',
+    'record_args',
     'logger',
   );
 
@@ -222,11 +222,11 @@ class Client {
   protected $url = '';
 
   /**
-   * Last request parameters path+query+body, if option record_params.
+   * Last request arguments path+query+body, if option record_args.
    *
    * @var null|array
    */
-  protected $paramsRecorded;
+  protected $argsRecorded;
 
   /**
    * Accept request header value, unless overridden by options[accept]
@@ -512,7 +512,7 @@ class Client {
    *   - (string) log_type: use that log type when logging.
    *   - (bool) service_response_info_wrapper (tell service to wrap response
    *     in object listing service response properties)
-   *   - (bool) record_params: make path+query+body params available
+   *   - (bool) record_args: make path+query+body args available
    *   - (obj) logger: PSR-3 logger; will be used directly or as logger for
    *       Inspect.
    *   Default: empty.
@@ -800,19 +800,19 @@ class Client {
    *
    * @see Client::make()
    *
-   * @param array|NULL $pathParams
+   * @param array|NULL $pathArgs
    *   Each bucket will be added to the server + endpoint URL.
-   *   Example: http://ser.ver/end-point/first-path-param/second-path-param
+   *   Example: http://ser.ver/end-point/first-path-arg/second-path-arg
    *   Default: empty.
-   * @param array|NULL $queryParams
+   * @param array|NULL $queryArgs
    *   Each key-value pair becomes key=value.
-   *   Example: http://ser.ver/end-point?first=param&second=param
+   *   Example: http://ser.ver/end-point?first=arg&second=arg
    *   Default: empty.
    *
    * @return $this
    */
-  public function head($pathParams = NULL, $queryParams = NULL) {
-    return $this->request('HEAD', $pathParams, $queryParams);
+  public function head($pathArgs = NULL, $queryArgs = NULL) {
+    return $this->request('HEAD', $pathArgs, $queryArgs);
   }
 
   /**
@@ -822,19 +822,19 @@ class Client {
    *
    * @see Client::make()
    *
-   * @param array|NULL $pathParams
+   * @param array|NULL $pathArgs
    *   Each bucket will be added to the server + endpoint URL.
-   *   Example: http://ser.ver/end-point/first-path-param/second-path-param
+   *   Example: http://ser.ver/end-point/first-path-arg/second-path-arg
    *   Default: empty.
-   * @param array|NULL $queryParams
+   * @param array|NULL $queryArgs
    *   Each key-value pair becomes key=value.
-   *   Example: http://ser.ver/end-point?first=param&second=param
+   *   Example: http://ser.ver/end-point?first=arg&second=arg
    *   Default: empty.
    *
    * @return $this.
    */
-  public function get($pathParams = NULL, $queryParams = NULL) {
-    return $this->request('GET', $pathParams, $queryParams);
+  public function get($pathArgs = NULL, $queryArgs = NULL) {
+    return $this->request('GET', $pathArgs, $queryArgs);
   }
 
   /**
@@ -844,21 +844,21 @@ class Client {
    *
    * @see Client::make()
    *
-   * @param array|NULL $pathParams
+   * @param array|NULL $pathArgs
    *   Each bucket will be added to the server + endpoint URL.
-   *   Example: http://ser.ver/end-point/first-path-param/second-path-param
+   *   Example: http://ser.ver/end-point/first-path-arg/second-path-arg
    *   Default: empty.
-   * @param array|NULL $queryParams
+   * @param array|NULL $queryArgs
    *   Each key-value pair becomes key=value.
-   *   Example: http://ser.ver/end-point?first=param&second=param
+   *   Example: http://ser.ver/end-point?first=arg&second=arg
    *   Default: empty.
-   * @param array|NULL $bodyParams
+   * @param array|NULL $bodyArgs
    *   Default: empty.
    *
    * @return $this
    */
-  public function post($pathParams = NULL, $queryParams = NULL, $bodyParams = NULL) {
-    return $this->request('POST', $pathParams, $queryParams, $bodyParams);
+  public function post($pathArgs = NULL, $queryArgs = NULL, $bodyArgs = NULL) {
+    return $this->request('POST', $pathArgs, $queryArgs, $bodyArgs);
   }
 
   /**
@@ -868,21 +868,21 @@ class Client {
    *
    * @see Client::make()
    *
-   * @param array|NULL $pathParams
+   * @param array|NULL $pathArgs
    *   Each bucket will be added to the server + endpoint URL.
-   *   Example: http://ser.ver/end-point/first-path-param/second-path-param
+   *   Example: http://ser.ver/end-point/first-path-arg/second-path-arg
    *   Default: empty.
-   * @param array|NULL $queryParams
+   * @param array|NULL $queryArgs
    *   Each key-value pair becomes key=value.
-   *   Example: http://ser.ver/end-point?first=param&second=param
+   *   Example: http://ser.ver/end-point?first=arg&second=arg
    *   Default: empty.
-   * @param array|NULL $bodyParams
+   * @param array|NULL $bodyArgs
    *   Default: empty.
    *
    * @return $this
    */
-  public function put($pathParams = NULL, $queryParams = NULL, $bodyParams = NULL) {
-    return $this->request('PUT', $pathParams, $queryParams, $bodyParams);
+  public function put($pathArgs = NULL, $queryArgs = NULL, $bodyArgs = NULL) {
+    return $this->request('PUT', $pathArgs, $queryArgs, $bodyArgs);
   }
 
   /**
@@ -892,19 +892,19 @@ class Client {
    *
    * @see Client::make()
    *
-   * @param array|NULL $pathParams
+   * @param array|NULL $pathArgs
    *   Each bucket will be added to the server + endpoint URL.
-   *   Example: http://ser.ver/end-point/first-path-param/second-path-param
+   *   Example: http://ser.ver/end-point/first-path-arg/second-path-arg
    *   Default: empty.
-   * @param array|NULL $queryParams
+   * @param array|NULL $queryArgs
    *   Each key-value pair becomes key=value.
-   *   Example: http://ser.ver/end-point?first=param&second=param
+   *   Example: http://ser.ver/end-point?first=arg&second=arg
    *   Default: empty.
    *
    * @return $this
    */
-  public function delete($pathParams = NULL, $queryParams = NULL) {
-    return $this->request('DELETE', $pathParams, $queryParams);
+  public function delete($pathArgs = NULL, $queryArgs = NULL) {
+    return $this->request('DELETE', $pathArgs, $queryArgs);
   }
 
   /**
@@ -917,17 +917,17 @@ class Client {
    *   POST ~ create.
    *   PUT ~ update.
    *   DELETE.
-   * @param array|NULL $pathParams
+   * @param array|NULL $pathArgs
    *   Default: empty.
-   * @param array|NULL $queryParams
+   * @param array|NULL $queryArgs
    *   Default: empty.
-   * @param array|NULL $bodyParams
+   * @param array|NULL $bodyArgs
    *   Ignored unless $method is POST or PUT.
    *   Default: empty.
    *
    * @return $this
    */
-  public function request($method = 'GET', $pathParams = NULL, $queryParams = NULL, $bodyParams = NULL) {
+  public function request($method = 'GET', $pathArgs = NULL, $queryArgs = NULL, $bodyArgs = NULL) {
     // Check for previous error, like empty constructor arg $server.
     if ($this->error) {
       return $this;
@@ -941,37 +941,37 @@ class Client {
     // Options.
     $options =& $this->options;
 
-    $record_params = FALSE;
-    if (!empty($options['record_params'])) {
-      $record_params = TRUE;
-      $this->paramsRecorded = array();
+    $record_args = FALSE;
+    if (!empty($options['record_args'])) {
+      $record_args = TRUE;
+      $this->argsRecorded = array();
     }
 
-    // Path parameters: double URL encoding of some chars,
+    // Path args: double URL encoding of some chars,
     // to prevent parsing errors.
-    // A slash in a path parameter could otherwise be interpreted
+    // A slash in a path arg could otherwise be interpreted
     // as two path fragments instead of one (Drupal url-decodes full url
-    // before parsing into path fragments and get parameters).
-    if ($pathParams) {
-      foreach ($pathParams as $val) {
+    // before parsing into path fragments and query args).
+    if ($pathArgs) {
+      foreach ($pathArgs as $val) {
         $this->url .= '/' . rawurlencode(str_replace(array('/', '?', '&', '='), array('%2F', '3F', '26', '3D'), $val));
       }
-      if ($record_params) {
-        $this->paramsRecorded['path'] =& $pathParams;
+      if ($record_args) {
+        $this->argsRecorded['path'] =& $pathArgs;
       }
     }
 
-    // Query parameters: single URL encoding.
-    if ($queryParams) {
+    // Query arguments: single URL encoding.
+    if ($queryArgs) {
       $i = -1;
-      foreach ($queryParams as $key => $val) {
-        // Only ?-delimiter if first param and (empty endpoint
+      foreach ($queryArgs as $key => $val) {
+        // Only ?-delimiter if first arg and (empty endpoint
         // or endpoint doesn't contain ?).
         $this->url .= (!(++$i) && (!$this->endpoint || !strpos($this->endpoint, '?')) ? '?' : '&')
           . $key . '=' . rawurlencode($val);
       }
-      if ($record_params) {
-        $this->paramsRecorded['query'] =& $queryParams;
+      if ($record_args) {
+        $this->argsRecorded['query'] =& $queryArgs;
       }
     }
 
@@ -1068,7 +1068,7 @@ class Client {
         break;
       case 'POST':
         $curlOpts[CURLOPT_POST] = TRUE;
-        if ($bodyParams) {
+        if ($bodyArgs) {
           // Resolve request body content type.
           $contentTypeJson = FALSE;
           // Default content type of the payload is x-www-form-urlencoded.
@@ -1080,13 +1080,13 @@ class Client {
           }
           $headers[] = 'Content-Type: ' . $options['content_type'];
           if (!$contentTypeJson) {
-            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = http_build_query($bodyParams));
+            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = http_build_query($bodyArgs));
           }
           else {
-            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = json_encode($bodyParams));
+            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = json_encode($bodyArgs));
           }
-          if ($record_params) {
-            $this->paramsRecorded['body'] =& $bodyParams;
+          if ($record_args) {
+            $this->argsRecorded['body'] =& $bodyArgs;
           }
         }
         else {
@@ -1100,8 +1100,8 @@ class Client {
         // CURLOPT_PUT is no good, because it makes cUrl
         // send 'Tranfer-Encoding: chunked'.
         // And 'chunked' is only useful when sending files, not 'form data'.
-        if ($bodyParams) {
-          // Making a server look for POST vars when HTTP method is PUT
+        if ($bodyArgs) {
+          // Making a server look for POST (body) vars when HTTP method is PUT
           // may be real hard.
           $headers[] = 'X-HTTP-Method-Override: PUT';
           // Resolve request body content type.
@@ -1114,13 +1114,13 @@ class Client {
           }
           $headers[] = 'Content-Type: ' . $options['content_type'];
           if (!$contentTypeJson) {
-            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = http_build_query($bodyParams));
+            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = http_build_query($bodyArgs));
           }
           else {
-            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = json_encode($bodyParams));
+            $headers[] = 'Content-Length: ' . strlen($curlOpts[CURLOPT_POSTFIELDS] = json_encode($bodyArgs));
           }
-          if ($record_params) {
-            $this->paramsRecorded['body'] =& $bodyParams;
+          if ($record_args) {
+            $this->argsRecorded['body'] =& $bodyArgs;
           }
         }
         else {
@@ -1140,9 +1140,9 @@ class Client {
             'endpoint' => $this->endpoint,
             'method' => $method,
             'options' => $options,
-            'path params' => $pathParams,
-            'query params' => $queryParams,
-            'body params' => $bodyParams,
+            'path args' => $pathArgs,
+            'query args' => $queryArgs,
+            'body args' => $bodyArgs,
             'url' => $this->url,
           )
         );
@@ -1177,9 +1177,9 @@ class Client {
           'endpoint' => $this->endpoint,
           'method' => $method,
           'options' => $options,
-          'path params' => $pathParams,
-          'query params' => $queryParams,
-          'body params' => $bodyParams,
+          'path args' => $pathArgs,
+          'query args' => $queryArgs,
+          'body args' => $bodyArgs,
           'url' => $this->url,
           'error' => $this->error,
         )
@@ -1204,9 +1204,9 @@ class Client {
           'endpoint' => $this->endpoint,
           'method' => $method,
           'options' => $options,
-          'path params' => $pathParams,
-          'query params' => $queryParams,
-          'body params' => $bodyParams,
+          'path args' => $pathArgs,
+          'query args' => $queryArgs,
+          'body args' => $bodyArgs,
           'url' => $this->url,
           'error' => $this->error,
           'curl info' => curl_getinfo($resource),
@@ -1322,9 +1322,9 @@ class Client {
           'endpoint' => $this->endpoint,
           'method' => $method,
           'options' => $options,
-          'path params' => $pathParams,
-          'query params' => $queryParams,
-          'body params' => $bodyParams,
+          'path args' => $pathArgs,
+          'query args' => $queryArgs,
+          'body args' => $bodyArgs,
           'url' => $this->url,
           'duration' => $this->duration,
           'error' => $this->error,
@@ -1363,9 +1363,9 @@ class Client {
           'endpoint' => $this->endpoint,
           'method' => $method,
           'options' => $options,
-          'path params' => $pathParams,
-          'query params' => $queryParams,
-          'body params' => $bodyParams,
+          'path args' => $pathArgs,
+          'query args' => $queryArgs,
+          'body args' => $bodyArgs,
           'url' => $this->url,
           'duration' => $this->duration,
           'error' => $this->error,
@@ -1458,8 +1458,8 @@ class Client {
         'accept_chars' => $this->acceptCharset,
         'parser' => $this->parser,
       );
-      if ($this->started && !empty($this->options['record_params'])) {
-        $request['params'] = $this->paramsRecorded;
+      if ($this->started && !empty($this->options['record_args'])) {
+        $request['args'] = $this->argsRecorded;
       }
     }
     else {
@@ -1661,7 +1661,7 @@ class Client {
     $this->error = array();
     $this->method = '';
     $this->url = '';
-    $this->paramsRecorded = NULL;
+    $this->argsRecorded = NULL;
     $this->started = 0;
     $this->duration = 0;
     $this->responseHeaders = array();

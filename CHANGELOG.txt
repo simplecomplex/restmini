@@ -1,3 +1,9 @@
+restmini 1.x, 2017-04-22
+------------------------
+- New option record_args: record path/query/body arguments; for logs and the
+  info() method.
+- Renamed path/query/body arguments; from 'parameters'.
+
 restmini 1.x, 2017-03-09
 ------------------------
 - Renamed 'log_severity' option (from 'log_severity_error'). And it's default
