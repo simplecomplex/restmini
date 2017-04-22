@@ -1460,9 +1460,6 @@ class Client {
       );
       if ($this->started && !empty($this->options['record_params'])) {
         $request['params'] = $this->paramsRecorded;
-        //if (!empty($this->paramsRecorded['body']) && strpos($this->options['content_type'], 'application/json') === 0) {
-        //  $request['params']['body_json'] = json_encode($this->paramsRecorded['body']);
-        //}
       }
     }
     else {
@@ -1472,7 +1469,7 @@ class Client {
     return array(
       'method' => $this->method,
       'url' => $this->url,
-    )+ $request + array(
+    ) + $request + array(
       'status' => $this->status,
       'content_type' => $this->contentType,
       'content_length' => $this->contentLength,
