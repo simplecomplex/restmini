@@ -1172,17 +1172,7 @@ class Client {
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to initiate connection',
         NULL,
-        array(
-          'server' => $this->server,
-          'endpoint' => $this->endpoint,
-          'method' => $method,
-          'options' => $options,
-          'path args' => $pathArgs,
-          'query args' => $queryArgs,
-          'body args' => $bodyArgs,
-          'url' => $this->url,
-          'error' => $this->error,
-        )
+        $this->info('request')
       );
 
       return $this;
@@ -1199,16 +1189,7 @@ class Client {
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to set request options',
         NULL,
-        array(
-          'server' => $this->server,
-          'endpoint' => $this->endpoint,
-          'method' => $method,
-          'options' => $options,
-          'path args' => $pathArgs,
-          'query args' => $queryArgs,
-          'body args' => $bodyArgs,
-          'url' => $this->url,
-          'error' => $this->error,
+        $this->info('request') + array(
           'curl info' => curl_getinfo($resource),
         )
       );
@@ -1313,21 +1294,8 @@ class Client {
       $this->log(
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         $em,
-        //. ((!$this->ssl || (array_key_exists('ssl_verify', $options) && !$options['ssl_verify'])) ? '' : ', check ssl_verify'),
         NULL,
-        array(
-          'status' => $this->status,
-          'response headers' => $this->responseHeaders,
-          'server' => $this->server,
-          'endpoint' => $this->endpoint,
-          'method' => $method,
-          'options' => $options,
-          'path args' => $pathArgs,
-          'query args' => $queryArgs,
-          'body args' => $bodyArgs,
-          'url' => $this->url,
-          'duration' => $this->duration,
-          'error' => $this->error,
+        $this->info() + array(
           'curl error code' => $cUrlErrorCode,
           'curl error message' => $cUrlErrorString,
           'curl info' => curl_getinfo($resource),
@@ -1354,22 +1322,7 @@ class Client {
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Response error status code ' . $this->status,
         NULL,
-        array(
-          'status' => $this->status,
-          'response headers' => $this->responseHeaders,
-          'content_type' => $this->contentType,
-          'content_length' => $this->contentLength,
-          'server' => $this->server,
-          'endpoint' => $this->endpoint,
-          'method' => $method,
-          'options' => $options,
-          'path args' => $pathArgs,
-          'query args' => $queryArgs,
-          'body args' => $bodyArgs,
-          'url' => $this->url,
-          'duration' => $this->duration,
-          'error' => $this->error,
-        )
+        $this->info()
       );
     }
 
@@ -1443,13 +1396,21 @@ class Client {
    *  - duration
    *  - error
    *
-   * @param boolean $responseOnly
-   *   Truthy: get only response related properties.
+   * @param string $only
+   *   Values: request|response.
+   *   Default: empty; expose info of request and response.
    *
    * @return array
    */
-  public function info($responseOnly = FALSE) {
-    if (!$responseOnly) {
+  public function info($only = '') {
+    $what = 3;
+    if ($only) {
+      $what = $only == 'request' ? 1 : 2;
+    }
+    if ($what == 2) {
+      $request = array();
+    }
+    else {
       $request = array(
         'server' => $this->server,
         'endpoint' => $this->endpoint,
@@ -1458,27 +1419,30 @@ class Client {
         'accept_chars' => $this->acceptCharset,
         'parser' => $this->parser,
       );
+      if ($what == 1) {
+        $request['error'] = $this->error;
+      }
       if ($this->started && !empty($this->options['record_args'])) {
         $request['args'] = $this->argsRecorded;
       }
     }
+    if ($what == 1) {
+      $response = array();
+    }
     else {
-      $request = array();
+      $response = array(
+        'status' => $this->status,
+        'content_type' => $this->contentType,
+        'content_length' => $this->contentLength,
+        'headers' => $this->responseHeaders,
+        'stops' => $this->stops,
+        'started' => $this->started,
+        'duration' => $this->duration,
+        'error' => $this->error,
+      );
     }
 
-    return array(
-      'method' => $this->method,
-      'url' => $this->url,
-    ) + $request + array(
-      'status' => $this->status,
-      'content_type' => $this->contentType,
-      'content_length' => $this->contentLength,
-      'headers' => $this->responseHeaders,
-      'stops' => $this->stops,
-      'started' => $this->started,
-      'duration' => $this->duration,
-      'error' => $this->error,
-    );
+    return $request + $response;
   }
 
   /**
@@ -1545,8 +1509,8 @@ class Client {
   public function result($fetchKeyPath = array(), $responseInfo = FALSE) {
     if ($this->error) {
       return !$responseInfo ? FALSE : (
-        $this->info(TRUE) + array(
-        'result' => FALSE,
+        $this->info('response') + array(
+          'result' => FALSE,
         )
       );
     }
@@ -1554,7 +1518,7 @@ class Client {
     // Empty.
     if ($this->response == '') {
       return !$responseInfo ? '' : (
-        $this->info(TRUE) + array(
+        $this->info('response') + array(
           'result' => '',
         )
       );
@@ -1589,7 +1553,7 @@ class Client {
         'message' => 'Response content type doesnt match parser',
       );
       return !$responseInfo ? NULL : (
-        $this->info(TRUE) + array(
+        $this->info('response') + array(
           'result' => NULL,
         )
       );
@@ -1611,7 +1575,7 @@ class Client {
         'message' => 'Failed to parse response',
       );
       return !$responseInfo ? NULL : (
-        $this->info(TRUE) + array(
+        $this->info('response') + array(
           'result' => NULL,
         )
       );
@@ -1619,7 +1583,7 @@ class Client {
 
     if (!$fetchKeyPath) {
       return !$responseInfo ? $data : (
-        $this->info(TRUE) + array(
+        $this->info('response') + array(
           'result' => $data,
         )
       );
