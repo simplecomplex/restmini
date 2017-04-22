@@ -1340,7 +1340,13 @@ class Client {
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Response error status code ' . $this->status,
         NULL,
-        $this->info()
+        $this->info() + ($record_args ? array() : array(
+          'args' => array(
+            'path' => $pathArgs,
+            'query' => $queryArgs,
+            'body' => $bodyArgs,
+          )
+        ))
       );
     }
 
