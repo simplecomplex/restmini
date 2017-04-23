@@ -1128,25 +1128,24 @@ class Client {
         $curlOpts[CURLOPT_CUSTOMREQUEST] = 'DELETE';
         break;
       default:
-        $this->log(
-          LOG_ERR,
-          'Unsupported HTTP method',
-          NULL,
-          array(
-            'server' => $this->server,
-            'endpoint' => $this->endpoint,
-            'method' => $method,
-            'options' => $options,
-            'path args' => $pathArgs,
-            'query args' => $queryArgs,
-            'body args' => $bodyArgs,
-            'url' => $this->url,
-          )
-        );
         $this->error = array(
           'code' => static::errorCode('method_not_supported'),
           'name' => 'method_not_supported',
           'message' => 'Unsupported HTTP method',
+        );
+        $info = $this->info('request');
+        if ($record_args) {
+          $info['args'] = array(
+            'path' => $pathArgs,
+            'query' => $queryArgs,
+            'body' => $bodyArgs,
+          );
+        }
+        $this->log(
+          LOG_ERR,
+          'Unsupported HTTP method',
+          NULL,
+          $info
         );
 
         return $this;
@@ -1165,17 +1164,19 @@ class Client {
         'name' => 'init_connection',
         'message' => 'Failed to initiate connection',
       );
+      $info = $this->info('request');
+      if ($record_args) {
+        $info['args'] = array(
+          'path' => $pathArgs,
+          'query' => $queryArgs,
+          'body' => $bodyArgs,
+        );
+      }
       $this->log(
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to initiate connection',
         NULL,
-        $this->info('request') + ($record_args ? array() : array(
-          'args' => array(
-            'path' => $pathArgs,
-            'query' => $queryArgs,
-            'body' => $bodyArgs,
-          )
-        ))
+        $info
       );
 
       return $this;
@@ -1188,19 +1189,20 @@ class Client {
         'name' => 'request_options',
         'message' => 'Failed to set request options',
       );
+      $info = $this->info('request');
+      if ($record_args) {
+        $info['args'] = array(
+          'path' => $pathArgs,
+          'query' => $queryArgs,
+          'body' => $bodyArgs,
+        );
+      }
+      $info['curl info'] = curl_getinfo($resource);
       $this->log(
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Failed to set request options',
         NULL,
-        $this->info('request') + ($record_args ? array() : array(
-          'args' => array(
-            'path' => $pathArgs,
-            'query' => $queryArgs,
-            'body' => $bodyArgs,
-          )
-        )) + array(
-          'curl info' => curl_getinfo($resource),
-        )
+        $info
       );
       curl_close($resource);
 
@@ -1300,21 +1302,22 @@ class Client {
         'name' => $errorName,
         'message' => $em,
       );
+      $info = $this->info('request');
+      if ($record_args) {
+        $info['args'] = array(
+          'path' => $pathArgs,
+          'query' => $queryArgs,
+          'body' => $bodyArgs,
+        );
+      }
+      $info['curl error code'] = $cUrlErrorCode;
+      $info['curl error message'] = $cUrlErrorString;
+      $info['curl info'] = curl_getinfo($resource);
       $this->log(
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         $em,
         NULL,
-        $this->info() + ($record_args ? array() : array(
-          'args' => array(
-            'path' => $pathArgs,
-            'query' => $queryArgs,
-            'body' => $bodyArgs,
-          )
-        )) + array(
-          'curl error code' => $cUrlErrorCode,
-          'curl error message' => $cUrlErrorString,
-          'curl info' => curl_getinfo($resource),
-        )
+        $info
       );
       curl_close($resource);
 
@@ -1333,17 +1336,19 @@ class Client {
         'name' => 'response_error',
         'message' => 'Response error',
       );
+      $info = $this->info('request');
+      if ($record_args) {
+        $info['args'] = array(
+          'path' => $pathArgs,
+          'query' => $queryArgs,
+          'body' => $bodyArgs,
+        );
+      }
       $this->log(
         isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
         'Response error status code ' . $this->status,
         NULL,
-        $this->info() + ($record_args ? array() : array(
-          'args' => array(
-            'path' => $pathArgs,
-            'query' => $queryArgs,
-            'body' => $bodyArgs,
-          )
-        ))
+        $info
       );
     }
 
@@ -1397,6 +1402,9 @@ class Client {
   /**
    * Get all info about the client and it's last request (if any).
    *
+   *  Request/response properties:
+   *  - error (empty if none)
+   *
    *  Request properties:
    *  - server
    *  - endpoint
@@ -1405,6 +1413,7 @@ class Client {
    *  - options
    *  - accept
    *  - accept_chars
+   *  - args (if option record_args)
    *
    *  Response properties:
    *  - status
@@ -1415,7 +1424,6 @@ class Client {
    *  - stops (zero unless option get_headers)
    *  - started
    *  - duration
-   *  - error
    *
    * @param string $only
    *   Values: request|response.
@@ -1433,6 +1441,7 @@ class Client {
     }
     else {
       $request = array(
+        'error' => $this->error,
         'server' => $this->server,
         'endpoint' => $this->endpoint,
         'method' => $this->method,
@@ -1441,9 +1450,6 @@ class Client {
         'accept' => $this->accept,
         'accept_chars' => $this->acceptCharset,
       );
-      if ($what == 1) {
-        $request['error'] = $this->error;
-      }
       if ($this->started && !empty($this->options['record_args'])) {
         $request['args'] = $this->argsRecorded;
       }
@@ -1453,6 +1459,7 @@ class Client {
     }
     else {
       $response = array(
+        'error' => $this->error,
         'status' => $this->status,
         'content_type' => $this->contentType,
         'content_length' => $this->contentLength,
@@ -1461,8 +1468,11 @@ class Client {
         'started' => $this->started,
         'duration' => $this->duration,
         'parser' => $this->parser,
-        'error' => $this->error,
       );
+      if ($what == 3) {
+        // Don't dupe.
+        unset($response['error']);
+      }
     }
 
     return $request + $response;

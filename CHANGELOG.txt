@@ -8,6 +8,7 @@ restmini 1.x, 2017-04-22
 - Release 0.9.
 - Fix that info() no longer contained method and url, and that parser should be
   a response property (not request).
+- info() error must always be first property. And fix info array concatenation.
 
 restmini 1.x, 2017-03-09
 ------------------------
