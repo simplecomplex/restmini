@@ -6,6 +6,8 @@ restmini 1.x, 2017-04-22
 - New optional info() parameter 'only'; values request|response.
 - Use the info() method when logging errors.
 - Release 0.9.
+- Fix that info() no longer contained method and url, and that parser should be
+  a response property (not request).
 
 restmini 1.x, 2017-03-09
 ------------------------

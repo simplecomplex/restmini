@@ -308,6 +308,7 @@ class Client {
   protected $response;
 
   /**
+   * @see Client::make()
    * @see Client::alterOptions()
    *
    * @param string $server
@@ -397,25 +398,21 @@ class Client {
    * Convenience factory which facilitates chaining.
    *
    * @code
-   * // Get JSON-decoded response.
+   * use SimpleComplex\RestMini\Client;
+   *
+   * // Get JSON-decoded response data.
    * $data = Client::make('http://server', '/endpoint')->get()->result();
+   *
    * // Check status first.
-   * $request = Client::make('http://server', '/endpoint')->get();
-   * if ($request->status() == 200) {
-   *   $data = $request->result();
+   * $response = Client::make('http://server', '/endpoint')->get();
+   * if ($response->status() == 200) {
+   *   $data = $response->result();
    * }
-   * // Get all relevant properties in one go:
-   * $response = Client::make('http://server', '/endpoint')->get()->result(TRUE);
-   * if ($response['status'] == 200) {
-   *   // Use $response['result'] ...
+   * else {
+   *   $some_logger->log('warning', json_encode($response->info());
    * }
-   * elseif (!empty($response['headers']['Some header')) {
-   *   // ...
-   * }
-   * elseif ($response['error']) {
-   *   // ...
-   * }
-   * // Get raw response.
+   *
+   * // Get raw response data.
    * $raw = Client::make('http://server', '/endpoint')->get()->raw():
    * @endcode
    *
@@ -1401,20 +1398,20 @@ class Client {
    * Get all info about the client and it's last request (if any).
    *
    *  Request properties:
-   *  - method (also returned when truthy arg $response)
-   *  - url (also returned when truthy arg $response)
    *  - server
    *  - endpoint
+   *  - method
+   *  - url
    *  - options
    *  - accept
    *  - accept_chars
    *
    *  Response properties:
-   *  - parser (but not returned when truthy arg $response)
    *  - status
    *  - content_type
    *  - content_length
    *  - headers
+   *  - parser
    *  - stops (zero unless option get_headers)
    *  - started
    *  - duration
@@ -1422,7 +1419,7 @@ class Client {
    *
    * @param string $only
    *   Values: request|response.
-   *   Default: empty; expose info of request and response.
+   *   Default: empty; expose info of both request and response.
    *
    * @return array
    */
@@ -1438,10 +1435,11 @@ class Client {
       $request = array(
         'server' => $this->server,
         'endpoint' => $this->endpoint,
+        'method' => $this->method,
+        'url' => $this->url,
         'options' => $this->options,
         'accept' => $this->accept,
         'accept_chars' => $this->acceptCharset,
-        'parser' => $this->parser,
       );
       if ($what == 1) {
         $request['error'] = $this->error;
@@ -1462,6 +1460,7 @@ class Client {
         'stops' => $this->stops,
         'started' => $this->started,
         'duration' => $this->duration,
+        'parser' => $this->parser,
         'error' => $this->error,
       );
     }
@@ -1726,7 +1725,7 @@ class Client {
 
     if ($name) {
       return static::$errorCodeOffset
-      + (array_key_exists($name, static::$errorCodes) ? static::$errorCodes[$name] : static::$errorCodes['unknown']);
+        + (array_key_exists($name, static::$errorCodes) ? static::$errorCodes[$name] : static::$errorCodes['unknown']);
     }
 
     if ($range) {
