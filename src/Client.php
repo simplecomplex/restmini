@@ -84,6 +84,8 @@ class Client {
   /**
    * Class name of \SimpleComplex\Inspect\Inspect or extending class.
    *
+   * Ignored if the class doesn't exist.
+   *
    * @code
    * // Overriding class must use fully qualified (namespaced) class name.
    * const CLASS_INSPECT = \SimpleComplex\Inspect\Inspect::class;
@@ -91,7 +93,38 @@ class Client {
    *
    * @var string
    */
-  const CLASS_INSPECT = '';
+  const CLASS_INSPECT = '\\SimpleComplex\\Inspect\\Inspect';
+
+  /**
+   * Class name of a PSR-3 logger.
+   *
+   * Ignored if the class doesn't exist.
+   *
+   * Easier on performance than setting ::$instancePsrLogger, because the logger
+   * will only be included and instantiated on demand.
+   *
+   * @code
+   * // Overriding class must use fully qualified (namespaced) class name.
+   * const CLASS_PSR_LOGGER = \Package\Library\Logger::class;
+   * @endcode
+   *
+   * @var string
+   */
+  const CLASS_PSR_LOGGER = '\\SimpleComplex\\JsonLog\\JsonLog';
+
+  /**
+   * A PSR-3 logger instance.
+   *
+   * Takes precedence over CLASS_PSR_LOGGER.
+   *
+   * @code
+   * $logger = new \Package\Library\Logger();
+   * \SimpleComplex\RestMini\Client::$instancePsrLogger = $logger;
+   * @endcode
+   *
+   * @var null|\Psr\Log\AbstractLogger
+   */
+  public static $instancePsrLogger;
 
   /**
    * @var integer
@@ -1835,9 +1868,6 @@ class Client {
     // logger (as option).
     if ($inspect == -1) {
       $inspect = static::CLASS_INSPECT;
-      if (!$inspect) {
-        $inspect = '\\SimpleComplex\\Inspect\\Inspect';
-      }
       if (!class_exists($inspect)) {
         $inspect = 0;
       }
@@ -1846,6 +1876,17 @@ class Client {
         $logger = $this->options['logger'];
         if (!is_object($logger) || !method_exists($logger, 'log')) {
           $logger = NULL;
+        }
+      }
+      if (!$logger) {
+        if (static::$instancePsrLogger) {
+          $logger = static::$instancePsrLogger;
+        }
+        else {
+          $logger_class = static::CLASS_PSR_LOGGER;
+          if (class_exists($logger_class)) {
+            $logger = new $logger_class();
+          }
         }
       }
     }
