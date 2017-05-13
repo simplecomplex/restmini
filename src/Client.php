@@ -82,6 +82,18 @@ class Client {
   const RESPONSE_HEADER_CUMULATE = 'rtl';
 
   /**
+   * Class name of \SimpleComplex\Inspect\Inspect or extending class.
+   *
+   * @code
+   * // Overriding class must use fully qualified (namespaced) class name.
+   * const CLASS_INSPECT = \SimpleComplex\Inspect\Inspect::class;
+   * @endcode
+   *
+   * @var string
+   */
+  const CLASS_INSPECT = '';
+
+  /**
    * @var integer
    */
   protected static $errorCodeOffset = 1500;
@@ -1822,13 +1834,11 @@ class Client {
     // Check for Inspect, and whether this object was initialized with a PSR-3
     // logger (as option).
     if ($inspect == -1) {
-      // This implementation expects the Inspect library source to be placed
-      // right beside this source (Composer would place it there).
-      if (file_exists(dirname(__FILE__) . '/../../inspect/src/Inspect.php')) {
-        include_once dirname(__FILE__) . '/../../inspect/src/Inspect.php';
-        $inspect = 1;
+      $inspect = static::CLASS_INSPECT;
+      if (!$inspect) {
+        $inspect = '\\SimpleComplex\\Inspect\\Inspect';
       }
-      else {
+      if (!class_exists($inspect)) {
         $inspect = 0;
       }
       // Use PSR-3 logger; directly or as logger for Inspect.
@@ -1839,9 +1849,10 @@ class Client {
         }
       }
     }
+    $type = !empty($this->options['log_type']) ? $this->options['log_type'] : static::LOG_TYPE_DEFAULT;
     if ($inspect) {
       $opts = array(
-        'type' => !empty($this->options['log_type']) ? $this->options['log_type'] : static::LOG_TYPE_DEFAULT,
+        'type' => $type,
         'message' => $message,
         'severity' => $severity,
         'wrappers' => 1,
@@ -1851,19 +1862,27 @@ class Client {
       }
       // Trace exception, or inspect variable.
       if ($exception) {
-        \SimpleComplex\Inspect\Inspect::trace($exception, $opts);
+        forward_static_call_array(array($inspect, 'trace'), array($exception, $opts));
       }
       else {
-        \SimpleComplex\Inspect\Inspect::log($variable, $opts);
+        forward_static_call_array(array($inspect, 'log'), array($variable, $opts));
       }
     }
     else {
+      $code = 0;
       if ($exception) {
-        $message .= ': (' . $exception->getCode() . ') ' . $exception->getMessage()
+        $code = $exception->getCode();
+        $message .= ': (' . $code . ') ' . $exception->getMessage()
           . ' @' . $exception->getFile() . ':' . $exception->getLine();
       }
       if ($logger) {
-        $logger->log($severity, $message);
+        $logger->log($severity, $message, array(
+          // Drupal.
+          'type' => $type,
+          // \SimpleComplex\JsonLog\JsonLog.
+          'subType' => $type,
+          'code' => $code,
+        ));
       }
       else {
         error_log($message);
