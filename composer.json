@@ -2,7 +2,7 @@
     "name": "simplecomplex/restmini",
     "type": "library",
     "description": "Small powerful REST client.",
-    "keywords": ["HTTP", "REST"],
+    "keywords": ["HTTP", "REST", "PHP"],
     "homepage": "https://github.com/simplecomplex/restmini",
     "license": "MIT",
     "authors": [
