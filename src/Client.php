@@ -9,9 +9,8 @@ declare(strict_types=1);
 
 namespace SimpleComplex\RestMini;
 
-use Psr\Log\LogLevel;
 use Psr\Log\LoggerInterface;
-use Psr\SimpleCache\CacheInterface;
+use SimpleComplex\Utils\Utils;
 use SimpleComplex\Utils\Sanitize;
 use SimpleComplex\Inspect\Inspect;
 
@@ -60,7 +59,7 @@ class Client
     /**
      * Default when no 'log_severity' option.
      *
-     * @var string
+     * @var int
      */
     const LOG_SEVERITY_DEFAULT = LOG_WARNING;
 
@@ -69,7 +68,7 @@ class Client
      *
      * @var string
      */
-    const LOG_TYPE_DEFAULT = 'restmini';
+    const LOG_TYPE_DEFAULT = 'rest-mini_client';
 
     /**
      * Response header separator.
@@ -261,15 +260,15 @@ class Client
     protected static $requestTimeoutDefault = 0;
 
     /**
-     * @var CacheInterface
+     * @var LoggerInterface
      */
     protected $logger;
 
     /**
-     *  If error, buckets are:
-     *  - (int) code
-     *  - (str) name
-     *  - (str) message
+     * If error, buckets are:
+     * - (int) code
+     * - (str) name
+     * - (str) message
      *
      * @var array
      */
@@ -496,22 +495,10 @@ class Client
      *
      * @return $this
      */
-    public function setLogger(LoggerInterface $logger)
+    public function setLogger(LoggerInterface $logger) : Client
     {
         $this->logger = $logger;
         return $this;
-    }
-
-    /**
-     * Get list of names of options supported.
-     *
-     * @see Client::alterOptions()
-     *
-     * @return array
-     */
-    public static function optionsSupported() : array
-    {
-        return static::OPTIONS_SUPPORTED;
     }
 
     /**
@@ -556,7 +543,7 @@ class Client
      * @throws \TypeError
      *      Propagated. From setLogger().
      */
-    public function alterOptions(array $set = [], array $unset = [])
+    public function alterOptions(array $set = [], array $unset = []) : Client
     {
         $options =& $this->options;
 
@@ -783,7 +770,7 @@ class Client
      *
      * @return $this
      */
-    public function parser($object, string $method, $options = null, $errorReturn = null)
+    public function parser($object, string $method, $options = null, $errorReturn = null) : Client
     {
         $is_callable = true;
         $obj = $object;
@@ -840,7 +827,7 @@ class Client
      *
      * @return $this
      */
-    public function head(array $pathArgs = [], array $queryArgs = [])
+    public function head(array $pathArgs = [], array $queryArgs = []) : Client
     {
         return $this->request('HEAD', $pathArgs, $queryArgs);
     }
@@ -861,7 +848,7 @@ class Client
      *
      * @return $this.
      */
-    public function get(array $pathArgs = [], array $queryArgs = [])
+    public function get(array $pathArgs = [], array $queryArgs = []) : Client
     {
         return $this->request('GET', $pathArgs, $queryArgs);
     }
@@ -883,7 +870,7 @@ class Client
      *
      * @return $this
      */
-    public function post(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = [])
+    public function post(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []) : Client
     {
         return $this->request('POST', $pathArgs, $queryArgs, $bodyArgs);
     }
@@ -905,7 +892,7 @@ class Client
      *
      * @return $this
      */
-    public function put(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = [])
+    public function put(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []) : Client
     {
         return $this->request('PUT', $pathArgs, $queryArgs, $bodyArgs);
     }
@@ -926,7 +913,7 @@ class Client
      *
      * @return $this
      */
-    public function delete(array $pathArgs = [], array $queryArgs = [])
+    public function delete(array $pathArgs = [], array $queryArgs = []) : Client
     {
         return $this->request('DELETE', $pathArgs, $queryArgs);
     }
@@ -947,8 +934,9 @@ class Client
      *
      * @return $this
      */
-    public function request(string $method = 'GET', array $pathArgs = [], array $queryArgs = [], array $bodyArgs = [])
-    {
+    public function request(
+        string $method = 'GET', array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []
+    ) : Client {
         // Check for previous error, like empty constructor arg $server.
         if ($this->error) {
             return $this;
@@ -1679,7 +1667,7 @@ class Client
      *
      * @return $this
      */
-    public function reset()
+    public function reset() : Client
     {
         $this->error = [];
         $this->method = '';
@@ -1824,7 +1812,7 @@ class Client
      *
      * @return string
      */
-    protected function certificateDir()
+    protected function certificateDir() : string
     {
         return static::configGet('', 'cacertsdir', '/etc/ssl/certs');
     }
@@ -1834,76 +1822,31 @@ class Client
      *
      * @param int $severity
      * @param string $message
-     * @param mixed $variable
-     *      Ignored if no Inspect library.
-     *      Ignored if truthy arg $exception.
+     * @param mixed|null $variable
      */
-    protected function log($severity, $message, $variable = null)
+    protected function log(int $severity, string $message, $variable = null) /*: void*/
     {
-
-
-
-        static $inspect = -1, $logger;
-        // Check for Inspect, and whether this object was initialized with a PSR-3
-        // logger (as option).
-        if ($inspect == -1) {
-            $inspect = static::CLASS_INSPECT;
-            if (!class_exists($inspect)) {
-                $inspect = 0;
-            }
-            // Use PSR-3 logger; directly or as logger for Inspect.
-            if (!empty($this->options['logger'])) {
-                $logger = $this->options['logger'];
-                if (!is_object($logger) || !method_exists($logger, 'log')) {
-                    $logger = null;
-                }
-            }
-            if (!$logger) {
-                if (static::$instancePsrLogger) {
-                    $logger = static::$instancePsrLogger;
-                }
-                else {
-                    $logger_class = static::CLASS_PSR_LOGGER;
-                    if (class_exists($logger_class)) {
-                        $logger = new $logger_class();
-                    }
-                }
-            }
-        }
-        $type = !empty($this->options['log_type']) ? $this->options['log_type'] : static::LOG_TYPE_DEFAULT;
-        if ($inspect) {
-            $opts = [
-                'type' => $type,
-                'message' => $message,
-                'severity' => $severity,
-                'wrappers' => 1,
-            ];
-            if ($logger) {
-                $opts['logger'] = $logger;
-            }
-            // Trace exception, or inspect variable.
-            if ($exception) {
-                forward_static_call_array([$inspect, 'trace'], [$exception, $opts]);
-            } else {
-                forward_static_call_array([$inspect, 'log'], [$variable, $opts]);
-            }
-        } else {
-            $code = 0;
-            if ($logger) {
-                $logger->log($severity, $message, [
-                    // Drupal.
-                    'type' => $type,
-                    // \SimpleComplex\JsonLog\JsonLog.
-                    'subType' => $type,
-                    'code' => $code,
-                ]);
-            } else {
-                error_log($message);
-            }
+        if ($this->logger) {
+            $this->logger->log(
+                Utils::getInstance()->logLevelToString($severity),
+                $message
+                . Inspect::getInstance()->variable(
+                    $variable,
+                    [
+                        'wrappers' => 1,
+                    ]
+                ),
+                [
+                    'subType' => $this->options['log_type'] ?? static::LOG_TYPE_DEFAULT,
+                    'code' => $this->error['code'] ?? 0
+                ]
+            );
         }
     }
 
     /**
+     * Extracts response headers.
+     *
      * CURLOPT_HEADERFUNCTION implementation.
      *
      * @param resource $resource
