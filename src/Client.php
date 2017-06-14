@@ -9,12 +9,17 @@ declare(strict_types=1);
 
 namespace SimpleComplex\RestMini;
 
+use Psr\Log\LogLevel;
+use Psr\Log\LoggerInterface;
+use Psr\SimpleCache\CacheInterface;
+use SimpleComplex\Utils\Sanitize;
+use SimpleComplex\Inspect\Inspect;
+
 /**
  * Small powerful REST client.
  */
 class Client
 {
-
     /**
      * @var string
      */
@@ -214,6 +219,7 @@ class Client
      * @var array
      */
     const OPTIONS_SUPPORTED = [
+        'logger',
         'accept',
         'accept_charset',
         'content_type',
@@ -234,7 +240,6 @@ class Client
         'log_type',
         'service_response_info_wrapper',
         'record_args',
-        'logger',
     ];
 
     /**
@@ -254,6 +259,11 @@ class Client
      * @var int
      */
     protected static $requestTimeoutDefault = 0;
+
+    /**
+     * @var CacheInterface
+     */
+    protected $logger;
 
     /**
      *  If error, buckets are:
@@ -390,38 +400,23 @@ class Client
      * @see Client::alterOptions()
      *
      * @param string $server
-     *   Protocol + domain (~ http://ser.ver).
-     *   Prepends http:// if no protocol (only http and https supported).
-     *   Trailing slash will be removed.
+     *      Protocol + domain (~ http://ser.ver).
+     *      Prepends http:// if no protocol (only http and https supported).
+     *      Trailing slash will be removed.
      * @param string $endpoint
-     *   Examples: 'path', '/base/route/end-point', '/endpoint.php',
-     *   '/dir/endpoint.aspx?arg=val'.
-     *   Leading slash is optional; will be prepended if missing.
-     *   Default: empty.
+     *      Examples: 'path', '/base/route/end-point', '/endpoint.php',
+     *      '/dir/endpoint.aspx?arg=val'.
+     *      Leading slash is optional; will be prepended if missing.
      * @param array $options
-     *   Supported: see Client::alterOptions().
-     *   Default: empty.
+     *      Supported: see Client::alterOptions().
+     *
+     * @throws \InvalidArgumentException
+     *      Arg server empty, or suggesting other protocol than http(s).
      */
     public function __construct(string $server, string $endpoint = '', array $options = [])
     {
         if (!$server) {
-            $this->error = [
-                'code' => static::errorCode('server_arg_empty'),
-                'name' => 'server_arg_empty',
-                'message' => $em = 'Constructor arg server is empty',
-            ];
-            $this->log(
-                LOG_ERR,
-                $em,
-                null,
-                [
-                    'server' => $server,
-                    'endpoint' => $endpoint,
-                    'options' => $options,
-                ]
-            );
-
-            return;
+            throw new \InvalidArgumentException('Arg server is not non-empty string.');
         }
 
         // Check if SSL.
@@ -431,22 +426,7 @@ class Client
         // Prepend default protocol, if none.
         elseif (strpos($server, 'http://') === false) {
             if (strpos($server, ':/') !== false) {
-                $this->error = [
-                    'code' => static::errorCode('protocol_not_supported'),
-                    'name' => 'protocol_not_supported',
-                    'message' => $em = 'Constructor arg server protocol not supported',
-                ];
-                $this->log(
-                    LOG_ERR,
-                    $em,
-                    null,
-                    [
-                        'server' => $server,
-                        'endpoint' => $endpoint,
-                        'options' => $options,
-                    ]
-                );
-                return;
+                throw new \InvalidArgumentException('Protocol suggested by arg server is not supported.');
             }
             $server = 'http://' . $server;
         }
@@ -510,6 +490,19 @@ class Client
     }
 
     /**
+     * May also be passed via options.
+     *
+     * @param LoggerInterface $logger
+     *
+     * @return $this
+     */
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+        return $this;
+    }
+
+    /**
      * Get list of names of options supported.
      *
      * @see Client::alterOptions()
@@ -559,6 +552,9 @@ class Client
      * @param array $unset
      *
      * @return $this
+     *
+     * @throws \TypeError
+     *      Propagated. From setLogger().
      */
     public function alterOptions(array $set = [], array $unset = [])
     {
@@ -583,12 +579,11 @@ class Client
                     $this->error = [
                         'code' => static::errorCode('option_not_supported'),
                         'name' => 'option_not_supported',
-                        'message' => $em = 'Option[' . static::plaintext($key) . '] not supported.',
+                        'message' => $em = 'Option[' . Sanitize::getInstance()->plainText($key) . '] not supported.',
                     ];
                     $this->log(
                         LOG_ERR,
                         $em,
-                        null,
                         $set
                     );
 
@@ -600,6 +595,10 @@ class Client
             foreach ($unset as $val) {
                 unset($options[$val]);
             }
+        }
+
+        if (!empty($options['logger'])) {
+            $this->setLogger($options['logger']);
         }
 
         // Get (deprecated) accept and accept charset set in headers.
@@ -626,7 +625,6 @@ class Client
                 $this->log(
                     LOG_NOTICE,
                     'Deprecated headers option(s), use root option(s) instead; ' . join(', ', $deprecated),
-                    null,
                     [
                         'options seen' => $opts_raw,
                         'options fixed' => $options,
@@ -651,7 +649,6 @@ class Client
             $this->log(
                 LOG_ERR,
                 $em,
-                null,
                 [
                     'options' => $options,
                     'set' => $set,
@@ -710,7 +707,6 @@ class Client
                 $this->log(
                     LOG_ERR,
                     $em,
-                    null,
                     [
                         'options' => $options,
                         'set' => $set,
@@ -737,7 +733,6 @@ class Client
                         $this->log(
                             LOG_ERR,
                             $em,
-                            null,
                             [
                                 'options' => $options,
                                 'set' => $set,
@@ -759,7 +754,6 @@ class Client
                 $this->log(
                     LOG_ERR,
                     $em,
-                    null,
                     [
                         'options' => $options,
                         'set' => $set,
@@ -801,7 +795,6 @@ class Client
             $this->log(
                 LOG_ERR,
                 'Parser not callable, arg object not object',
-                null,
                 func_get_args()
             );
         }
@@ -810,7 +803,6 @@ class Client
             $this->log(
                 LOG_ERR,
                 'Parser not callable, arg object has no such method',
-                null,
                 func_get_args()
             );
         }
@@ -1055,7 +1047,7 @@ class Client
                 // Unless path+file (custom ssl_cacert_file option using path+file
                 // instead of just file), prepend path.
                 if (!strpos(' ' . $ca_file, '/')) {
-                    $ca_file = static::certificateDir() . '/' . $ca_file;
+                    $ca_file = $this->certificateDir() . '/' . $ca_file;
                 }
                 $curl_opts[CURLOPT_CAINFO] = $ca_file;
             }
@@ -1183,7 +1175,6 @@ class Client
                 $this->log(
                     LOG_ERR,
                     'Unsupported HTTP method',
-                    null,
                     $info
                 );
 
@@ -1214,7 +1205,6 @@ class Client
             $this->log(
                 isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
                 'Failed to initiate connection',
-                null,
                 $info
             );
 
@@ -1240,7 +1230,6 @@ class Client
             $this->log(
                 isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
                 'Failed to set request options',
-                null,
                 $info
             );
             curl_close($resource);
@@ -1283,7 +1272,7 @@ class Client
         // Check response.
         if ($this->response === false) {
             $curl_error_code = curl_errno($resource);
-            $curl_error_string = static::plaintext(str_replace("\n", ' ', curl_error($resource)));
+            $curl_error_string = Sanitize::getInstance()->plainText(str_replace("\n", ' ', curl_error($resource)));
             $em = $curl_error_string . ' (' . $curl_error_code . ')';
             // Common error have dedicated error codes.
             switch ($curl_error_code) {
@@ -1349,7 +1338,6 @@ class Client
             $this->log(
                 isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
                 $em,
-                null,
                 $info
             );
             curl_close($resource);
@@ -1380,7 +1368,6 @@ class Client
             $this->log(
                 isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
                 'Response error status code ' . $this->status,
-                null,
                 $info
             );
         }
@@ -1639,7 +1626,6 @@ class Client
             $this->log(
                 isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
                 'Failed to parse response',
-                null,
                 get_object_vars($this)
             );
             $this->error = [
@@ -1834,21 +1820,11 @@ class Client
     }
 
     /**
-     * @param string $str
-     *
-     * @return string
-     */
-    protected static function plaintext($str)
-    {
-        return htmlspecialchars(strip_tags($str), ENT_QUOTES, 'UTF-8');
-    }
-
-    /**
      * Get default certificates dir.
      *
      * @return string
      */
-    protected static function certificateDir()
+    protected function certificateDir()
     {
         return static::configGet('', 'cacertsdir', '/etc/ssl/certs');
     }
@@ -1858,14 +1834,15 @@ class Client
      *
      * @param int $severity
      * @param string $message
-     * @param \Exception|null $exception
-     *      Ignored if no Inspect library.
      * @param mixed $variable
      *      Ignored if no Inspect library.
      *      Ignored if truthy arg $exception.
      */
-    protected function log($severity, $message, $exception = null, $variable = null)
+    protected function log($severity, $message, $variable = null)
     {
+
+
+
         static $inspect = -1, $logger;
         // Check for Inspect, and whether this object was initialized with a PSR-3
         // logger (as option).
@@ -1912,11 +1889,6 @@ class Client
             }
         } else {
             $code = 0;
-            if ($exception) {
-                $code = $exception->getCode();
-                $message .= ': (' . $code . ') ' . $exception->getMessage()
-                    . ' @' . $exception->getFile() . ':' . $exception->getLine();
-            }
             if ($logger) {
                 $logger->log($severity, $message, [
                     // Drupal.
