@@ -90,51 +90,6 @@ class Client
     const RESPONSE_HEADER_CUMULATE = 'rtl';
 
     /**
-     * Class name of \SimpleComplex\Inspect\Inspect or extending class.
-     *
-     * Ignored if the class doesn't exist.
-     *
-     * @code
-     * // Overriding class must use fully qualified (namespaced) class name.
-     * const CLASS_INSPECT = \SimpleComplex\Inspect\Inspect::class;
-     * @endcode
-     *
-     * @var string
-     */
-    const CLASS_INSPECT = '\\SimpleComplex\\Inspect\\Inspect';
-
-    /**
-     * Class name of a PSR-3 logger.
-     *
-     * Ignored if the class doesn't exist.
-     *
-     * Easier on performance than setting ::$instancePsrLogger, because the logger
-     * will only be included and instantiated on demand.
-     *
-     * @code
-     * // Overriding class must use fully qualified (namespaced) class name.
-     * const CLASS_PSR_LOGGER = \Package\Library\Logger::class;
-     * @endcode
-     *
-     * @var string
-     */
-    const CLASS_PSR_LOGGER = '\\SimpleComplex\\JsonLog\\JsonLog';
-
-    /**
-     * A PSR-3 logger instance.
-     *
-     * Takes precedence over CLASS_PSR_LOGGER.
-     *
-     * @code
-     * $logger = new \Package\Library\Logger();
-     * \SimpleComplex\RestMini\Client::$instancePsrLogger = $logger;
-     * @endcode
-     *
-     * @var null|\Psr\Log\AbstractLogger
-     */
-    public static $instancePsrLogger;
-
-    /**
      * @var int
      */
     const ERROR_CODE_OFFSET = 1500;
@@ -237,6 +192,7 @@ class Client
         'get_headers',
         'log_severity',
         'log_type',
+        'correlation_id_header',
         'service_response_info_wrapper',
         'record_args',
     ];
@@ -1818,7 +1774,10 @@ class Client
     }
 
     /**
-     * Uses optional PSR-3 logger and/or Inspect if applicable.
+     * Uses optional PSR-3 logger and Inspect.
+     *
+     * @see \SimpleComplex\JsonLog\JsonLogEvent
+     * @see \SimpleComplex\Inspect\Inspect
      *
      * @param int $severity
      * @param string $message
@@ -1827,19 +1786,32 @@ class Client
     protected function log(int $severity, string $message, $variable = null) /*: void*/
     {
         if ($this->logger) {
+            // Enrich log context/keywords.
+            $context = [
+                'type' => $log_type = $this->options['log_type'] ?? static::LOG_TYPE_DEFAULT,
+                'subType' => $log_type,
+            ];
+            if (!empty($this->error['code'])) {
+                $context['code'] = $this->error['code'];
+            }
+            if (
+                $this->started
+                && !empty($this->options['correlation_id_header'])
+                && $this->responseHeaders && !empty($this->responseHeaders[$this->options['correlation_id_header']])
+            ) {
+                $context['correlationId'] = $this->responseHeaders[$this->options['correlation_id_header']];
+            }
+
             $this->logger->log(
+                // We like (int) severity, PSR-3 log likes (str) word.
                 Utils::getInstance()->logLevelToString($severity),
-                $message
-                . Inspect::getInstance()->variable(
+                $message . Inspect::getInstance()->variable(
                     $variable,
                     [
                         'wrappers' => 1,
                     ]
                 ),
-                [
-                    'subType' => $this->options['log_type'] ?? static::LOG_TYPE_DEFAULT,
-                    'code' => $this->error['code'] ?? 0
-                ]
+                $context
             );
         }
     }

@@ -1,6 +1,6 @@
-restmini 2.x, 2017-06-14
+restmini 2.x, 2017-06-15
 ------------------------
--
+- New option correlation_id_header.
 
 restmini 1.x, 2017-04-22
 ------------------------
