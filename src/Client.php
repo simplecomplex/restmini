@@ -20,11 +20,6 @@ use SimpleComplex\Inspect\Inspect;
 class Client
 {
     /**
-     * @var string
-     */
-    const CONFIG_DOMAIN = 'lib_simplecomplex_restmini_client';
-
-    /**
      * Whether to SSL verify peer, when option ssl_verify not set.
      *
      * @var bool
@@ -32,16 +27,14 @@ class Client
     const SSL_VERIFY_DEFAULT = true;
 
     /**
-     * Default connect timeout in seconds, overridable by Drupal conf variable
-     * 'contimeout'.
+     * Default connect timeout in seconds.
      *
      * @var int
      */
     const CONNECT_TIMEOUT_DEFAULT = 5;
 
     /**
-     * Default request timeout in seconds; overridable by Drupal conf variable
-     * 'reqtimeout'.
+     * Default request timeout in seconds.
      *
      * @var int
      */
@@ -49,12 +42,18 @@ class Client
 
     /**
      * Default (minimum) surplus PHP execution time to leave for script execution
-     * after reception of response.
-     * In seconds; overridable by Drupal conf variable 'surplusexectime'.
+     * after reception of response; in seconds.
      *
      * @var int
      */
     const SURPLUS_EXECTIME_DEFAULT = 5;
+
+    /**
+     * Default certificates directory (path).
+     *
+     * @var string
+     */
+    const CERTIFICATES_DIR = '/etc/ssl/certs';
 
     /**
      * Default when no 'log_severity' option.
@@ -68,7 +67,7 @@ class Client
      *
      * @var string
      */
-    const LOG_TYPE_DEFAULT = 'rest-mini_client';
+    const LOG_TYPE_DEFAULT = 'restmini_client';
 
     /**
      * Response header separator.
@@ -200,20 +199,12 @@ class Client
     /**
      * Record of last time (if any) a client postponed PHP execution timeout.
      *
+     * Has to be static; tampering with PHP configuration affects the whole
+     * request.
+     *
      * @var int
      */
     protected static $tExecTimeoutPostponed = 0;
-
-    /**
-     * Default request timeout resolved.
-     *
-     * @see Client::REQUEST_TIMEOUT_DEFAULT
-     * @see Client::configGet()
-     * @see Client::__construct()
-     *
-     * @var int
-     */
-    protected static $requestTimeoutDefault = 0;
 
     /**
      * @var LoggerInterface
@@ -393,11 +384,6 @@ class Client
         // to 'dir/non_restmini_endpoint.aspx?arg=val'.
         $this->endpoint = '/' . ltrim($endpoint, '/');
 
-        // Get current request timeout default; we use it a lot.
-        if (!static::$requestTimeoutDefault) {
-            static::$requestTimeoutDefault = static::configGet('', 'reqtimeout', static::REQUEST_TIMEOUT_DEFAULT);
-        }
-
         // Resolve options.
         $this->alterOptions($options);
     }
@@ -449,7 +435,7 @@ class Client
      *
      * @param LoggerInterface $logger
      *
-     * @return $this
+     * @return $this|Client
      */
     public function setLogger(LoggerInterface $logger) : Client
     {
@@ -494,7 +480,7 @@ class Client
      * @param array $set
      * @param array $unset
      *
-     * @return $this
+     * @return $this|Client
      *
      * @throws \TypeError
      *      Propagated. From setLogger().
@@ -580,7 +566,8 @@ class Client
         // Secure valid request body content type, or empty.
         // Request body content type is only required if POST|PUT, so we don't
         // require it to be set at all.
-        if (!empty($options['content_type'])
+        if (
+            !empty($options['content_type'])
             && $options['content_type'] != 'application/x-www-form-urlencoded'
             && strpos($options['content_type'], 'application/json') !== 0
         ) {
@@ -602,10 +589,10 @@ class Client
 
         // Secure timeout options.
         if (!$options || !array_key_exists('connect_timeout', $options)) {
-            $options['connect_timeout'] = static::configGet('', 'contimeout', static::CONNECT_TIMEOUT_DEFAULT);
+            $options['connect_timeout'] = static::CONNECT_TIMEOUT_DEFAULT;
         }
         if (!$options || !array_key_exists('request_timeout', $options)) {
-            $options['request_timeout'] = static::$requestTimeoutDefault;
+            $options['request_timeout'] = static::REQUEST_TIMEOUT_DEFAULT;
         }
         // cUrl request timeout includes connection timeout, so effectively
         // request timeout cannot be less than connect timeout.
@@ -618,7 +605,7 @@ class Client
             // Set 'ssl_verify' option, if not set.
             if (!array_key_exists('ssl_verify', $options)) {
                 // Turned off by variable setting? Otherwise use current class default.
-                $options['ssl_verify'] = static::configGet('', 'sslverifydefnot', false) ? false : static::SSL_VERIFY_DEFAULT;
+                $options['ssl_verify'] = static::SSL_VERIFY_DEFAULT;
             }
             // Secure CA certs file.
             if ($options['ssl_verify']) {
@@ -688,7 +675,11 @@ class Client
 
         // log_severity must be int; RFC-5424.
         if (isset($options['log_severity'])) {
-            if (!ctype_digit($options['log_severity']) || $options['log_severity'] < 0 || $options['log_severity'] > 7) {
+            if (
+                !ctype_digit($options['log_severity'])
+                || $options['log_severity'] < LOG_EMERG
+                || $options['log_severity'] > LOG_DEBUG
+            ) {
                 $this->error = [
                     'code' => static::errorCode('option_value_invalid'),
                     'name' => 'option_value_invalid',
@@ -724,7 +715,7 @@ class Client
      * @param null|bool $errorReturn
      *      Set return value of parser when failing.
      *
-     * @return $this
+     * @return $this|Client
      */
     public function parser($object, string $method, $options = null, $errorReturn = null) : Client
     {
@@ -781,7 +772,7 @@ class Client
      *      Each key-value pair becomes key=value.
      *      Example: http://ser.ver/end-point?first=arg&second=arg
      *
-     * @return $this
+     * @return $this|Client
      */
     public function head(array $pathArgs = [], array $queryArgs = []) : Client
     {
@@ -802,7 +793,7 @@ class Client
      *      Each key-value pair becomes key=value.
      *      Example: http://ser.ver/end-point?first=arg&second=arg
      *
-     * @return $this.
+     * @return $this|Client
      */
     public function get(array $pathArgs = [], array $queryArgs = []) : Client
     {
@@ -824,7 +815,7 @@ class Client
      *      Example: http://ser.ver/end-point?first=arg&second=arg
      * @param array $bodyArgs
      *
-     * @return $this
+     * @return $this|Client
      */
     public function post(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []) : Client
     {
@@ -846,7 +837,7 @@ class Client
      *      Example: http://ser.ver/end-point?first=arg&second=arg
      * @param array $bodyArgs
      *
-     * @return $this
+     * @return $this|Client
      */
     public function put(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []) : Client
     {
@@ -867,7 +858,7 @@ class Client
      *      Each key-value pair becomes key=value.
      *      Example: http://ser.ver/end-point?first=arg&second=arg
      *
-     * @return $this
+     * @return $this|Client
      */
     public function delete(array $pathArgs = [], array $queryArgs = []) : Client
     {
@@ -888,7 +879,7 @@ class Client
      * @param array $bodyArgs
      *      Ignored unless $method is POST or PUT.
      *
-     * @return $this
+     * @return $this|Client
      */
     public function request(
         string $method = 'GET', array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []
@@ -914,9 +905,9 @@ class Client
 
         // Path args: double URL encoding of some chars,
         // to prevent parsing errors.
-        // A slash in a path arg could otherwise be interpreted
-        // as two path fragments instead of one (Drupal url-decodes full url
-        // before parsing into path fragments and query args).
+        // A slash in a path arg could otherwise be interpreted as two path
+        // fragments instead of one (if a request URL resolver url-decodes
+        // full url before parsing into path fragments and query args).
         if ($pathArgs) {
             foreach ($pathArgs as $val) {
                 $this->url .= '/' . rawurlencode(str_replace(['/', '?', '&', '='], ['%2F', '3F', '26', '3D'], $val));
@@ -956,7 +947,8 @@ class Client
         // Handle long request timeout; make sure PHP doesn't time out
         // before cURL does.
         // Only if any max_execution_time at all (is zero in CLI mode).
-        if ($options['request_timeout'] > static::$requestTimeoutDefault
+        if (
+            $options['request_timeout'] > static::REQUEST_TIMEOUT_DEFAULT
             && ($env_timeout = ini_get('max_execution_time'))
         ) {
             // We cannot know if/when anybody else postponed execution timeout,
@@ -964,8 +956,7 @@ class Client
             $t_last_postponed = static::$tExecTimeoutPostponed;
             $elapsed = time() - (!$t_last_postponed ? (int) $_SERVER['REQUEST_TIME'] : $t_last_postponed);
             $remaining = (int) $env_timeout - $elapsed;
-            $needed = $options['request_timeout']
-                + static::configGet('', 'surplusexectime', static::SURPLUS_EXECTIME_DEFAULT);
+            $needed = $options['request_timeout'] + static::SURPLUS_EXECTIME_DEFAULT;
             if ($remaining < $needed) {
                 static::$tExecTimeoutPostponed = time();
                 set_time_limit($needed);
@@ -991,7 +982,7 @@ class Client
                 // Unless path+file (custom ssl_cacert_file option using path+file
                 // instead of just file), prepend path.
                 if (!strpos(' ' . $ca_file, '/')) {
-                    $ca_file = $this->certificateDir() . '/' . $ca_file;
+                    $ca_file = static::CERTIFICATES_DIR . '/' . $ca_file;
                 }
                 $curl_opts[CURLOPT_CAINFO] = $ca_file;
             }
@@ -1494,7 +1485,8 @@ class Client
      *  - (arr) error
      *
      * @code
-     * $get_result_key = Client::make('http://server', '/endpoint')->get()->result(['remote', 'server', 'wraps', 'my', 'data']);
+     * $get_result_key = Client::make('http://server', '/endpoint')->get()
+     *     ->result(['remote', 'server', 'wraps', 'my', 'data']);
      * @endcode
      *
      * @param array $fetchKeyPath
@@ -1531,7 +1523,10 @@ class Client
 
         // Get out if status indicates no usable content,
         // and option 'status_vain_result_void' set and truthy.
-        if (!$responseInfo && $this->status >= 300 && !empty($this->options['status_vain_result_void'])) {
+        if (
+            !$responseInfo && $this->status >= 300
+            && !empty($this->options['status_vain_result_void'])
+        ) {
             return '';
         }
 
@@ -1621,7 +1616,7 @@ class Client
      * No need to call this method prior to a new request;
      * the get|post|put|delete() methods call it automatically.
      *
-     * @return $this
+     * @return $this|Client
      */
     public function reset() : Client
     {
@@ -1709,7 +1704,9 @@ class Client
 
         if ($name) {
             return static::ERROR_CODE_OFFSET
-                + (array_key_exists($name, static::ERROR_CODES) ? static::ERROR_CODES[$name] : static::ERROR_CODES['unknown']);
+                + (array_key_exists($name, static::ERROR_CODES) ? static::ERROR_CODES[$name] :
+                    static::ERROR_CODES['unknown']
+                );
         }
 
         if ($range) {
@@ -1732,45 +1729,6 @@ class Client
         }
 
         return $codes;
-    }
-
-    /**
-     * Get config var.
-     *
-     * This implementation attempts to get from server environment variables.
-     *
-     * Beware that environment variables are always strings.
-     *
-     *  Server environment variable names used:
-     *  - lib_simplecomplex_restmini_client_contimeout
-     *  - lib_simplecomplex_restmini_client_reqtimeout
-     *  - lib_simplecomplex_restmini_client_surplusexectime
-     *  - lib_simplecomplex_restmini_client_sslverifydefnot
-     *  - lib_simplecomplex_restmini_client_cacertssrc
-     *  - lib_simplecomplex_restmini_client_cacertsdir
-     *
-     * @param string $domain
-     *      Default: static::CONFIG_DOMAIN.
-     * @param string $name
-     * @param mixed $default
-     *      Default: null.
-     *
-     * @return mixed
-     *      String, unless no such var and arg default isn't string.
-     */
-    protected static function configGet($domain, $name, $default = null)
-    {
-        return ($val = getenv(($domain ? $domain : static::CONFIG_DOMAIN) . '_' . $name)) !== false ? $val : $default;
-    }
-
-    /**
-     * Get default certificates dir.
-     *
-     * @return string
-     */
-    protected function certificateDir() : string
-    {
-        return static::configGet('', 'cacertsdir', '/etc/ssl/certs');
     }
 
     /**
@@ -1820,6 +1778,8 @@ class Client
      * Extracts response headers.
      *
      * CURLOPT_HEADERFUNCTION implementation.
+     *
+     * @see http://php.net/manual/en/function.curl-setopt.php
      *
      * @param resource $resource
      * @param string $headerLine
