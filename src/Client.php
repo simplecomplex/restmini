@@ -3,7 +3,7 @@
  * SimpleComplex PHP RestMini Client
  * @link      https://github.com/simplecomplex/restmini
  * @copyright Copyright (c) 2017 Jacob Friis Mathiasen
- * @license   https://github.com/simplecomplex/php-utils/blob/master/LICENSE (MIT License)
+ * @license   https://github.com/simplecomplex/restmini/blob/master/LICENSE (MIT License)
  */
 declare(strict_types=1);
 
