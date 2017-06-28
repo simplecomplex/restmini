@@ -11,6 +11,7 @@ namespace SimpleComplex\RestMini;
 
 use Psr\Log\LoggerInterface;
 use SimpleComplex\Utils\Utils;
+use SimpleComplex\Utils\Dependency;
 use SimpleComplex\Utils\Sanitize;
 use SimpleComplex\Inspect\Inspect;
 
@@ -19,6 +20,11 @@ use SimpleComplex\Inspect\Inspect;
  */
 class Client
 {
+    /**
+     * @var string
+     */
+    const CLASS_INSPECT = Inspect::class;
+
     /**
      * Whether to SSL verify peer, when option ssl_verify not set.
      *
@@ -1760,10 +1766,18 @@ class Client
                 $context['correlationId'] = $this->responseHeaders[$this->options['correlation_id_header']];
             }
 
+            $container = Dependency::container();
+            if ($container->has('inspector')) {
+                $inspector = $container->get('inspector');
+            } else {
+                $inspect_class = static::CLASS_INSPECT;
+                $inspector = new $inspect_class($container->has('config') ? $container->get('config') : null);
+            }
+
             $this->logger->log(
                 // We like (int) severity, PSR-3 log likes (str) word.
                 Utils::getInstance()->logLevelToString($severity),
-                $message . Inspect::getInstance()->variable(
+                $message . $inspector->variable(
                     $variable,
                     [
                         'wrappers' => 1,
