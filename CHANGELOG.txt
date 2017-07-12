@@ -2,6 +2,7 @@ restmini 1.x, 2017-07-12
 ------------------------
 - Attempt to get PSR-logger from dependency injection container.
   Use error_log() as fallback if no logger and severity error or worse.
+- Release 0.9.
 
 restmini 1.x, 2017-06-16
 ------------------------
