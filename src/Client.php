@@ -170,8 +170,7 @@ class Client
      * - (bool) service_response_info_wrapper (tell service to wrap response
      *   in object listing service response properties)
      * - (bool) record_args: make path+query+body args available
-     * - (obj) logger: PSR-3 logger; will be used directly or as logger for
-     *      Inspect.
+     * - (obj) logger: PSR-3 logger; otherwise checks in Utils\Dependency.
      * 
      * @see Client::alterOptions()
      *
@@ -437,7 +436,7 @@ class Client
     }
 
     /**
-     * May also be passed via options.
+     * May also be passed via options, or set in dependency injection container.
      *
      * @param LoggerInterface $logger
      *
@@ -1738,7 +1737,8 @@ class Client
     }
 
     /**
-     * Uses optional PSR-3 logger and Inspect.
+     * Uses optional PSR-3 logger and Inspect, and error_log() as fallback
+     * (if severity:error or worse).
      *
      * @see \SimpleComplex\JsonLog\JsonLogEvent
      * @see \SimpleComplex\Inspect\Inspect
@@ -1749,6 +1749,10 @@ class Client
      */
     protected function log(int $severity, string $message, $variable = null) /*: void*/
     {
+        $container = Dependency::container();
+        if (!$this->logger && $container->has('logger')) {
+            $this->logger = $container->get('logger');
+        }
         if ($this->logger) {
             // Enrich log context/keywords.
             $context = [
@@ -1766,7 +1770,6 @@ class Client
                 $context['correlationId'] = $this->responseHeaders[$this->options['correlation_id_header']];
             }
 
-            $container = Dependency::container();
             if ($container->has('inspector')) {
                 $inspector = $container->get('inspector');
             } else {
@@ -1785,6 +1788,8 @@ class Client
                 ),
                 $context
             );
+        } elseif ($severity <= LOG_ERR) {
+            error_log(str_replace("\n", ' ', $message));
         }
     }
 
