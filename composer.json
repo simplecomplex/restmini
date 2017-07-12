@@ -16,7 +16,7 @@
         "ext-curl": "*",
         "psr/log": "^1.0",
         "simplecomplex/utils": "^1.0",
-        "simplecomplex/inspect": "^1.0"
+        "simplecomplex/inspect": "^2.0"
     },
     "autoload": {
         "psr-4": {
