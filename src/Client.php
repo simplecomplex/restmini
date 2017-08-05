@@ -1495,7 +1495,7 @@ class Client
      * @endcode
      *
      * @param array $fetchKeyPath
-     *      List of keys to recurse by to find the actual payload data.
+     *      List of keys to traverse by to find the actual payload data.
      *      Default: empty.
      * @param bool $responseInfo
      *      Ignored if $fetchKeyPath, unless error; then response info may be useful.
