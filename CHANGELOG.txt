@@ -1,3 +1,9 @@
+restmini 1.x, 2017-08-08
+------------------------
+- Client no longer throws exception; constructor used to do it.
+- Class constant METHODS_SUPPORTED.
+- Error messages when severity error prefixed with 'Client '.
+
 restmini 1.x, 2017-07-12
 ------------------------
 - Attempt to get PSR-logger from dependency injection container.

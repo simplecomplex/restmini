@@ -21,6 +21,17 @@ use SimpleComplex\Inspect\Inspect;
 class Client
 {
     /**
+     * @var string[]
+     */
+    const METHODS_SUPPORTED = [
+        'HEAD',
+        'GET',
+        'POST',
+        'PUT',
+        'DELETE',
+    ];
+
+    /**
      * @var string
      */
     const CLASS_INSPECT = Inspect::class;
@@ -360,14 +371,21 @@ class Client
      *      Leading slash is optional; will be prepended if missing.
      * @param array $options
      *      Supported: see Client::alterOptions().
-     *
-     * @throws \InvalidArgumentException
-     *      Arg server empty, or suggesting other protocol than http(s).
      */
     public function __construct(string $server, string $endpoint = '', array $options = [])
     {
         if (!$server) {
-            throw new \InvalidArgumentException('Arg server is not non-empty string.');
+            $this->error = [
+                'code' => static::errorCode('server_arg_empty'),
+                'name' => 'server_arg_empty',
+                'message' => $em = 'Client constructor arg server is not non-empty string.',
+            ];
+            $this->log(
+                LOG_ERR,
+                $em,
+                $server
+            );
+            return;
         }
 
         // Check if SSL.
@@ -377,7 +395,17 @@ class Client
         // Prepend default protocol, if none.
         elseif (strpos($server, 'http://') === false) {
             if (strpos($server, ':/') !== false) {
-                throw new \InvalidArgumentException('Protocol suggested by arg server is not supported.');
+                $this->error = [
+                    'code' => static::errorCode('protocol_not_supported'),
+                    'name' => 'protocol_not_supported',
+                    'message' => $em = 'Client protocol suggested by constructor arg server is not supported.',
+                ];
+                $this->log(
+                    LOG_ERR,
+                    $em,
+                    $server
+                );
+                return;
             }
             $server = 'http://' . $server;
         }
@@ -513,7 +541,8 @@ class Client
                     $this->error = [
                         'code' => static::errorCode('option_not_supported'),
                         'name' => 'option_not_supported',
-                        'message' => $em = 'Option[' . Sanitize::getInstance()->plainText($key) . '] not supported.',
+                        'message' => $em = 'Client option['
+                            . Sanitize::getInstance()->plainText($key) . '] not supported.',
                     ];
                     $this->log(
                         LOG_ERR,
@@ -579,7 +608,8 @@ class Client
             $this->error = [
                 'code' => static::errorCode('option_value_invalid'),
                 'name' => 'option_value_invalid',
-                'message' => $em = 'Option \'content_type\' value invalid, must be empty or application/x-www-form-urlencoded or start with application/json',
+                'message' => $em = 'Client option \'content_type\' value invalid,'
+                    . ' must be empty or application/x-www-form-urlencoded or start with application/json',
             ];
             $this->log(
                 LOG_ERR,
@@ -624,7 +654,7 @@ class Client
         // user:pass.
         if (!empty($options['user'])) {
             if (empty($options['pass'])) {
-                $em = 'Option \'user\' set and non-empty, but option \'pass\' ';
+                $em = 'Client option \'user\' set and non-empty, but option \'pass\' ';
                 if (!array_key_exists('pass', $options)) {
                     $this->error = [
                         'code' => static::errorCode('option_value_missing'),
@@ -663,7 +693,7 @@ class Client
                         $this->error = [
                             'code' => static::errorCode('option_value_invalid'),
                             'name' => 'option_value_invalid',
-                            'message' => $em = 'Option \'auth\' value invalid',
+                            'message' => $em = 'Client option \'auth\' value invalid',
                         ];
                         $this->log(
                             LOG_ERR,
@@ -688,7 +718,7 @@ class Client
                 $this->error = [
                     'code' => static::errorCode('option_value_invalid'),
                     'name' => 'option_value_invalid',
-                    'message' => $em = 'Option \'log_severity\' value must be an integer 7 thru 0',
+                    'message' => $em = 'Client option \'log_severity\' value must be an integer 7 thru 0',
                 ];
                 $this->log(
                     LOG_ERR,
@@ -733,7 +763,7 @@ class Client
             $is_callable = false;
             $this->log(
                 LOG_ERR,
-                'Parser not callable, arg object not object',
+                'Client parser not callable, arg object not object',
                 func_get_args()
             );
         }
@@ -741,7 +771,7 @@ class Client
             $is_callable = false;
             $this->log(
                 LOG_ERR,
-                'Parser not callable, arg object has no such method',
+                'Client parser not callable, arg object has no such method',
                 func_get_args()
             );
         }
@@ -749,7 +779,7 @@ class Client
             $this->error = [
                 'code' => static::errorCode('parser_not_callable'),
                 'name' => 'parser_not_callable',
-                'message' => 'Parser not callable',
+                'message' => 'Client parser not callable',
             ];
         } else {
             $this->parser = [
@@ -1114,7 +1144,7 @@ class Client
                 }
                 $this->log(
                     LOG_ERR,
-                    'Unsupported HTTP method',
+                    'Client unsupported HTTP method',
                     $info
                 );
 
@@ -1724,12 +1754,14 @@ class Client
         }
 
         if (!$codes) {
-            $codes = static::ERROR_CODES; // Copy.
+            // Copy.
+            $codes = static::ERROR_CODES;
             if (($offset = static::ERROR_CODE_OFFSET)) {
                 foreach ($codes as &$code) {
                     $code += $offset;
                 }
-                unset($code); // Iteration ref.
+                // Iteration ref.
+                unset($code);
             }
         }
 
