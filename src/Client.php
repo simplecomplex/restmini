@@ -127,6 +127,7 @@ class Client
         'option_value_missing' => 37,
         'option_value_empty' => 38,
         'option_value_invalid' => 39,
+        'argument_type_invalid' => 40,
         'init_connection' => 41,
         'request_options' => 42,
         'parser_not_callable' => 49,
@@ -848,13 +849,14 @@ class Client
      * @param array $queryArgs
      *      Each key-value pair becomes key=value.
      *      Example: http://ser.ver/end-point?first=arg&second=arg
-     * @param array $bodyArgs
+     * @param mixed $body
+     *      Must be array|object if application/x-www-form-urlencoded.
      *
      * @return $this|Client
      */
-    public function post(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []) : Client
+    public function post(array $pathArgs = [], array $queryArgs = [], $body = null) : Client
     {
-        return $this->request('POST', $pathArgs, $queryArgs, $bodyArgs);
+        return $this->request('POST', $pathArgs, $queryArgs, $body);
     }
 
     /**
@@ -870,13 +872,14 @@ class Client
      * @param array $queryArgs
      *      Each key-value pair becomes key=value.
      *      Example: http://ser.ver/end-point?first=arg&second=arg
-     * @param array $bodyArgs
+     * @param mixed $body
+     *      Must be array|object if application/x-www-form-urlencoded.
      *
      * @return $this|Client
      */
-    public function put(array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []) : Client
+    public function put(array $pathArgs = [], array $queryArgs = [], $body = null) : Client
     {
-        return $this->request('PUT', $pathArgs, $queryArgs, $bodyArgs);
+        return $this->request('PUT', $pathArgs, $queryArgs, $body);
     }
 
     /**
@@ -911,13 +914,14 @@ class Client
      *      DELETE.
      * @param array $pathArgs
      * @param array $queryArgs
-     * @param array $bodyArgs
+     * @param mixed $body
      *      Ignored unless $method is POST or PUT.
+     *      Must be array|object if application/x-www-form-urlencoded.
      *
      * @return $this|Client
      */
     public function request(
-        string $method = 'GET', array $pathArgs = [], array $queryArgs = [], array $bodyArgs = []
+        string $method = 'GET', array $pathArgs = [], array $queryArgs = [], $body = null
     ) : Client {
         // Check for previous error, like empty constructor arg $server.
         if ($this->error) {
@@ -1060,7 +1064,7 @@ class Client
                 break;
             case 'POST':
                 $curl_opts[CURLOPT_POST] = true;
-                if ($bodyArgs) {
+                if ($body) {
                     // Resolve request body content type.
                     $content_type_json = false;
                     // Default content type of the payload is x-www-form-urlencoded.
@@ -1072,16 +1076,39 @@ class Client
                     }
                     $headers[] = 'Content-Type: ' . $options['content_type'];
                     if (!$content_type_json) {
+                        if (!is_array($body) && !is_object($body)) {
+                            $this->error = [
+                                'code' => static::errorCode('argument_type_invalid'),
+                                'name' => 'argument_type_invalid',
+                                'message' => 'Non-empty body argument type[' . gettype($body) . '] is not valid'
+                                    . ' for application/x-www-form-urlencoded request, must be array or object',
+                            ];
+                            $info = $this->info('request');
+                            if ($record_args) {
+                                $info['args'] = [
+                                    'path' => $pathArgs,
+                                    'query' => $queryArgs,
+                                    'body' => $body,
+                                ];
+                            }
+                            $this->log(
+                                LOG_ERR,
+                                'Client invalid body argument',
+                                $info
+                            );
+
+                            return $this;
+                        }
                         $headers[] = 'Content-Length: ' . strlen(
-                                $curl_opts[CURLOPT_POSTFIELDS] = http_build_query($bodyArgs)
+                                $curl_opts[CURLOPT_POSTFIELDS] = http_build_query($body)
                             );
                     } else {
                         $headers[] = 'Content-Length: ' . strlen(
-                                $curl_opts[CURLOPT_POSTFIELDS] = json_encode($bodyArgs)
+                                $curl_opts[CURLOPT_POSTFIELDS] = json_encode($body)
                             );
                     }
                     if ($record_args) {
-                        $this->argsRecorded['body'] =& $bodyArgs;
+                        $this->argsRecorded['body'] = !is_object($body) ? $body : clone $body;
                     }
                 }
                 else {
@@ -1095,7 +1122,7 @@ class Client
                 // CURLOPT_PUT is no good, because it makes cUrl
                 // send 'Tranfer-Encoding: chunked'.
                 // And 'chunked' is only useful when sending files, not 'form data'.
-                if ($bodyArgs) {
+                if ($body) {
                     // Making a server look for POST (body) vars when HTTP method is PUT
                     // may be real hard.
                     $headers[] = 'X-HTTP-Method-Override: PUT';
@@ -1109,16 +1136,39 @@ class Client
                     }
                     $headers[] = 'Content-Type: ' . $options['content_type'];
                     if (!$content_type_json) {
+                        if (!is_array($body) && !is_object($body)) {
+                            $this->error = [
+                                'code' => static::errorCode('argument_type_invalid'),
+                                'name' => 'argument_type_invalid',
+                                'message' => 'Non-empty body argument type[' . gettype($body) . '] is not valid'
+                                    . ' for application/x-www-form-urlencoded request, must be array or object',
+                            ];
+                            $info = $this->info('request');
+                            if ($record_args) {
+                                $info['args'] = [
+                                    'path' => $pathArgs,
+                                    'query' => $queryArgs,
+                                    'body' => $body,
+                                ];
+                            }
+                            $this->log(
+                                LOG_ERR,
+                                'Client invalid body argument',
+                                $info
+                            );
+
+                            return $this;
+                        }
                         $headers[] = 'Content-Length: ' . strlen(
-                                $curl_opts[CURLOPT_POSTFIELDS] = http_build_query($bodyArgs)
+                                $curl_opts[CURLOPT_POSTFIELDS] = http_build_query($body)
                             );
                     } else {
                         $headers[] = 'Content-Length: ' . strlen(
-                                $curl_opts[CURLOPT_POSTFIELDS] = json_encode($bodyArgs)
+                                $curl_opts[CURLOPT_POSTFIELDS] = json_encode($body)
                             );
                     }
                     if ($record_args) {
-                        $this->argsRecorded['body'] =& $bodyArgs;
+                        $this->argsRecorded['body'] = !is_object($body) ? $body : clone $body;
                     }
                 }
                 else {
@@ -1139,7 +1189,7 @@ class Client
                     $info['args'] = [
                         'path' => $pathArgs,
                         'query' => $queryArgs,
-                        'body' => $bodyArgs,
+                        'body' => $body,
                     ];
                 }
                 $this->log(
@@ -1169,7 +1219,7 @@ class Client
                 $info['args'] = [
                     'path' => $pathArgs,
                     'query' => $queryArgs,
-                    'body' => $bodyArgs,
+                    'body' => $body,
                 ];
             }
             $this->log(
@@ -1193,7 +1243,7 @@ class Client
                 $info['args'] = [
                     'path' => $pathArgs,
                     'query' => $queryArgs,
-                    'body' => $bodyArgs,
+                    'body' => $body,
                 ];
             }
             $info['curl info'] = curl_getinfo($resource);
@@ -1299,7 +1349,7 @@ class Client
                 $info['args'] = [
                     'path' => $pathArgs,
                     'query' => $queryArgs,
-                    'body' => $bodyArgs,
+                    'body' => $body,
                 ];
             }
             $info['curl error code'] = $curl_error_code;
@@ -1332,7 +1382,7 @@ class Client
                 $info['args'] = [
                     'path' => $pathArgs,
                     'query' => $queryArgs,
-                    'body' => $bodyArgs,
+                    'body' => $body,
                 ];
             }
             $this->log(

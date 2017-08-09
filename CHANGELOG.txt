@@ -1,3 +1,9 @@
+restmini 1.x, 2017-08-09
+------------------------
+- Body argument may be any type if application/json.
+- Body argument must be array|object if application/x-www-form-urlencoded.
+- Don't refer body argument in args recorded; copy or clone it.
+
 restmini 1.x, 2017-08-08
 ------------------------
 - Client no longer throws exception; constructor used to do it.
