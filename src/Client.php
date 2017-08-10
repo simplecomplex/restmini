@@ -1526,6 +1526,14 @@ class Client
     /**
      * @return string
      */
+    public function logType() : string
+    {
+        return $this->options['log_type'] ?? static::LOG_TYPE_DEFAULT;
+    }
+
+    /**
+     * @return string
+     */
     public function __toString() : string
     {
         $s = get_class($this) . '(';

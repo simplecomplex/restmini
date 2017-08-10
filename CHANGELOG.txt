@@ -1,3 +1,7 @@
+restmini 1.x, 2017-08-10
+------------------------
+- logType() returns log type.
+
 restmini 1.x, 2017-08-09
 ------------------------
 - Body argument may be any type if application/json.
