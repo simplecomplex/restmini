@@ -1706,8 +1706,8 @@ class Client
      *
      * Does not reset parser properties.
      *
-     * No need to call this method prior to a new request;
-     * the get|post|put|delete() methods call it automatically.
+     * No need to call this method prior to a new request, unless previous
+     * request erred.
      *
      * @return $this|Client
      */
@@ -1870,7 +1870,7 @@ class Client
             $this->logger->log(
                 // We like (int) severity, PSR-3 log likes (str) word.
                 Utils::getInstance()->logLevelToString($severity),
-                $message . $inspector->variable(
+                $message . "\n" . $inspector->variable(
                     $variable,
                     [
                         'wrappers' => 1,
