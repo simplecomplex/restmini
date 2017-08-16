@@ -1,3 +1,9 @@
+restmini 1.x, 2017-08-16
+------------------------
+- NB: now defaults NOT to parse JSON object to array.
+- New option 'parse_json_assoc'.
+- Convenience class ClientParseAssoc.
+
 restmini 1.x, 2017-08-10
 ------------------------
 - logType() returns log type.

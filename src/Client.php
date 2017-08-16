@@ -157,6 +157,8 @@ class Client
 
     /**
      * Options:
+     * - (obj) logger: PSR-3 logger; otherwise checks in Utils\Dependency.
+     * - (bool) parse_json_assoc: ignored if using the parser() method
      * - (str) accept
      * - (str) accept_charset
      * - (str) content_type (of request body; supported:
@@ -182,7 +184,6 @@ class Client
      * - (bool) service_response_info_wrapper (tell service to wrap response
      *   in object listing service response properties)
      * - (bool) record_args: make path+query+body args available
-     * - (obj) logger: PSR-3 logger; otherwise checks in Utils\Dependency.
      * 
      * @see Client::alterOptions()
      *
@@ -190,6 +191,7 @@ class Client
      */
     const OPTIONS_SUPPORTED = [
         'logger',
+        'parse_json_assoc',
         'accept',
         'accept_charset',
         'content_type',
@@ -296,6 +298,8 @@ class Client
     protected $acceptCharset = 'UTF-8';
 
     /**
+     * Defaults to _not_ parse JSON object to associative array.
+     *
      * @var array
      */
     protected $parser = [
@@ -303,7 +307,7 @@ class Client
         'object' => 'this',
         'method' => 'parseJson',
         // Associative arrays.
-        'options' => true,
+        'options' => false,
         // Return value on error.
         'error' => null,
     ];
@@ -563,6 +567,13 @@ class Client
 
         if (!empty($options['logger'])) {
             $this->setLogger($options['logger']);
+        }
+
+        if (
+            isset($options['parse_json_assoc'])
+            && $this->parser['object'] == 'this' && $this->parser['method'] == 'parseJson'
+        ) {
+            $this->parser['options'] = !!$options['parse_json_assoc'];
         }
 
         // Get (deprecated) accept and accept charset set in headers.
