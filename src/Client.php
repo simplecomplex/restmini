@@ -1871,17 +1871,17 @@ class Client
                 $context['correlationId'] = $this->responseHeaders[$this->options['correlation_id_header']];
             }
 
-            if ($container->has('inspector')) {
-                $inspector = $container->get('inspector');
+            if ($container->has('inspect')) {
+                $inspect = $container->get('inspect');
             } else {
                 $inspect_class = static::CLASS_INSPECT;
-                $inspector = new $inspect_class($container->has('config') ? $container->get('config') : null);
+                $inspect = new $inspect_class($container->has('config') ? $container->get('config') : null);
             }
 
             $this->logger->log(
                 // We like (int) severity, PSR-3 log likes (str) word.
                 Utils::getInstance()->logLevelToString($severity),
-                $message . "\n" . $inspector->variable(
+                $message . "\n" . $inspect->variable(
                     $variable,
                     [
                         'wrappers' => 1,
