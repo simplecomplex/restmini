@@ -1,6 +1,6 @@
 ## RestMini Client ##
 
-#### Requirements ####
+### Requirements ###
 
 - PHP >=7.0
 - PHP cURL extension
