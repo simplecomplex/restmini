@@ -1,8 +1,8 @@
 ## RestMini Client ##
 
-### What ###
+### Simple HTTP client ###
 
-Simple HTTP client with chainable methods.  
+with chainable methods.  
 Highly configurable.  
 Extensive error handling and logging.  
 [cURL](https://curl.haxx.se)-based.
