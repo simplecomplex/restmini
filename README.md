@@ -4,7 +4,7 @@
 
 Simple HTTP client with chainable methods.
  
-Highly configurable, and extensive error handling and logging.
+Highly configurable. Extensive error handling and logging.
 
 ### Example ###
 
