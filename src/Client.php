@@ -1654,7 +1654,7 @@ class Client
             ) {
                 $parse = false;
             }
-        } elseif (strpos($this->accept, $this->contentType) === false) {
+        } elseif (!$this->contentType || strpos($this->accept, $this->contentType) === false) {
             $parse = false;
         }
         if (!$parse) {
