@@ -1639,6 +1639,11 @@ class Client
             !$responseInfo && $this->status >= 300
             && !empty($this->options['status_vain_result_void'])
         ) {
+            $this->log(
+                isset($this->options['log_severity']) ? $this->options['log_severity'] : static::LOG_SEVERITY_DEFAULT,
+                'Response status ' . $this->status . ' indicates no usable content, option status_vain_result_void',
+                get_object_vars($this)
+            );
             return '';
         }
 
