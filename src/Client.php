@@ -1301,7 +1301,11 @@ class Client
             $response_headers =& $this->responseHeaders;
             $header_keys = array_keys($response_headers);
             foreach ($header_keys as $hdr) {
-                if (strpos($hdr, 'cumulative_') === 0) {
+                /**
+                 * Headers keys should be strings, but just in case.
+                 * @see responseHeaderCallback()
+                 */
+                if (strpos('' . $hdr, 'cumulative_') === 0) {
                     unset($response_headers[$hdr]);
                 }
             }
@@ -1971,6 +1975,13 @@ class Client
                     else {
                         $headers[$cumulate_name] = $val;
                     }
+                }
+            }
+            // Header value empty; line ending with colon.
+            elseif (($line_len = strlen($line)) && $line{$line_len - 1} === ':') {
+                $name = substr($line, 0, $line_len - 1);
+                if (!isset($headers[$name])) {
+                    $headers[$name] = '';
                 }
             }
             // Wrongish header, which isn't 'key: value'.
