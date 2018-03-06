@@ -1,8 +1,8 @@
-restmini 1.x, 2017-10-24
+restmini 1.x, 2018-03-06
 ------------------------
-- Log when response status (>= 300) indicates no usable content;
-  using option status_vain_result_void.
-- Release 1.0.2.
+- Response header extraction failed to handle header with no space after
+  the colon and header with empty value.
+- Release 1.1.
 
 restmini 1.x, 2017-10-05
 ------------------------
