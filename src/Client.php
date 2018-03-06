@@ -1926,6 +1926,81 @@ class Client
     protected function responseHeaderCallback($resource, $headerLine)
     {
         // Remove trailing \r\n.
+        $line = trim($headerLine);
+        $l_line = strlen($line);
+        if ($l_line) {
+            $cumulate = static::RESPONSE_HEADER_CUMULATE;
+            $headers =& $this->responseHeaders;
+
+            // HTTP status text(s).
+            if (
+                strpos($line, 'HTTP') === 0
+                && ($pos = strpos($line, ' '))
+                && ctype_digit(substr($line, $pos + 1, 3))
+            ) {
+                $val = substr($line, $pos + 1);
+                // Register 100 Continue status.
+                if ($val == '100 Continue') {
+                    $headers['initial_status'] = '100 Continue';
+                }
+                else {
+                    ++$this->stops;
+                    // Status text must be without status code.
+                    $headers['status_text'] = substr($val, 4);
+                    if ($cumulate) {
+                        if (isset($headers['cumulative_status'])) {
+                            if ($cumulate != 'rtl') {
+                                $headers['cumulative_status'] .= static::RESPONSE_HEADER_SEP . $val;
+                            }
+                            else {
+                                $headers['cumulative_status'] = $val . static::RESPONSE_HEADER_SEP
+                                    . $headers['cumulative_status'];
+                            }
+                        }
+                        else {
+                            $headers['cumulative_status'] = $val;
+                        }
+                    }
+                }
+            }
+            // Straight 'key: value' headers. If dupes, the values must be
+            // concatenated as comma-separated list.
+            else {
+                $pos = strpos($line, ':');
+                if ($pos) {
+                    $name = substr($line, 0, $pos);
+                    // 'key: value'.
+                    if ($l_line > $pos + 1 && $line{$pos + 1} === ' ') {
+                        $val = substr($line, $pos + 2);
+                    }
+                    // 'key:value'.
+                    else {
+                        $val = substr($line, $pos + 1);
+                    }
+                    $headers[$name] = $val;
+                    if ($cumulate) {
+                        $cumulate_name = 'cumulative_' . $name;
+                        if (isset($headers[$cumulate_name])) {
+                            if ($cumulate != 'rtl') {
+                                $headers[$cumulate_name] .= static::RESPONSE_HEADER_SEP . $val;
+                            }
+                            else {
+                                $headers[$cumulate_name] = $val . static::RESPONSE_HEADER_SEP . $headers[$cumulate_name];
+                            }
+                        }
+                        else {
+                            $headers[$cumulate_name] = $val;
+                        }
+                    }
+                }
+                // Wrongish header; not 'key: value'.
+                else {
+                    $headers['ill-formed_' . count($headers)] = $line;
+                }
+            }
+        }
+
+        /*// Remove trailing \r\n.
         if (($line = trim($headerLine))) {
             $cumulate = static::RESPONSE_HEADER_CUMULATE;
             $headers =& $this->responseHeaders;
@@ -1988,7 +2063,8 @@ class Client
             else {
                 $headers[] = $line;
             }
-        }
+        }*/
+
         // Satisfy return value contract with PHP cUrl.
         return strlen($headerLine);
     }
