@@ -16,8 +16,8 @@
         "ext-curl": "*",
         "ext-ctype": "*",
         "psr/log": "^1.0",
-        "simplecomplex/utils": "^1.1 || ^2.0 || dev-develop",
-        "simplecomplex/inspect": "^2.1 || dev-develop"
+        "simplecomplex/utils": "^2.0 || ^1.1 || dev-develop",
+        "simplecomplex/inspect": "^3 || ^2.1 || dev-develop"
     },
     "autoload": {
         "psr-4": {

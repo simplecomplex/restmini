@@ -1888,22 +1888,22 @@ class Client
                 $context['correlationId'] = $this->responseHeaders[$this->options['correlation_id_header']];
             }
 
+            $msg = $message . "\n";
             if ($container->has('inspect')) {
-                $inspect = $container->get('inspect');
+                $msg .= $container->get('inspect')->variable(
+                    $variable,
+                    [
+                        'wrappers' => 1,
+                    ]
+                );
             } else {
-                $inspect_class = static::CLASS_INSPECT;
-                $inspect = new $inspect_class($container->has('config') ? $container->get('config') : null);
+                $msg .= print_r($variable, true);
             }
 
             $this->logger->log(
                 // We like (int) severity, PSR-3 log likes (str) word.
                 Utils::getInstance()->logLevelToString($severity),
-                $message . "\n" . $inspect->variable(
-                    $variable,
-                    [
-                        'wrappers' => 1,
-                    ]
-                ),
+                $msg,
                 $context
             );
         } elseif ($severity <= LOG_ERR) {
